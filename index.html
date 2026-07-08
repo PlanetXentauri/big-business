@@ -43,13 +43,13 @@ button, input, select, textarea { font-family: inherit; }
 input, select, textarea {
   width: 100%; background: rgba(255,255,255,0.04);
   border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
-  padding: 9px 12px; color: var(--text); font-size: 13px; outline: none;
+  padding: 9px 12px; color: var(--text); font-size: 15px; outline: none;
 }
 input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 ::placeholder { color: #475569; }
 .btn {
-  border: none; border-radius: 6px; padding: 9px 14px; font-size: 11px;
-  font-weight: 600; cursor: pointer; letter-spacing: 0.06em;
+  border: none; border-radius: 6px; padding: 9px 14px; font-size: 13px;
+  font-weight: 800; cursor: pointer; letter-spacing: 0.06em;
   font-family: 'DM Mono', monospace;
 }
 .btn-red { background: var(--accent); color: #0d0d10; }
@@ -57,7 +57,7 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
 .btn-dashed {
   background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.14);
   color: var(--muted); width: 100%; padding: 10px; border-radius: 8px;
-  cursor: pointer; font-size: 11px; letter-spacing: 0.08em;
+  cursor: pointer; font-size: 13px; letter-spacing: 0.08em;
 }
 .btn-dashed:hover { border-color: var(--accent); color: var(--accent); }
 .card {
@@ -65,17 +65,17 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
   border-radius: 14px; overflow: hidden;
 }
 .chip {
-  font-size: 9px; letter-spacing: 0.18em; padding: 2px 7px; border-radius: 4px;
-  display: inline-block;
+  font-size: 11px; letter-spacing: 0.18em; padding: 2px 7px; border-radius: 4px;
+  display: inline-block; font-weight: 700;
 }
-.section-title { font-size: 10px; letter-spacing: 0.3em; color: var(--muted); margin: 4px 0 12px; }
+.section-title { font-size: 12px; letter-spacing: 0.3em; color: #94a3b8; font-weight: 700; margin: 4px 0 12px; }
 .del-x {
-  background: transparent; border: none; color: #475569; font-size: 14px;
+  background: transparent; border: none; color: #475569; font-size: 16px;
   cursor: pointer; padding: 2px 6px; opacity: 0.55;
 }
 .del-x:hover { color: #ef4444; opacity: 1; }
 .empty {
-  padding: 30px 16px; text-align: center; color: var(--muted); font-size: 12px;
+  padding: 30px 16px; text-align: center; color: var(--muted); font-size: 14px;
   border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;
 }
 @keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
@@ -105,15 +105,15 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 .biz-tab {
   padding: 13px 10px; border-radius: 10px; cursor: pointer; text-align: center;
   border: 1px solid var(--border); background: var(--panel);
-  font-size: 12px; letter-spacing: 0.12em; color: var(--muted); font-weight: 600;
+  font-size: 14px; letter-spacing: 0.12em; color: var(--muted); font-weight: 600;
   transition: all .2s;
 }
 .biz-tab.active { color: #fff; }
 .sub-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
 .sub-tab {
-  padding: 7px 12px; border-radius: 999px; cursor: pointer; font-size: 10px;
+  padding: 7px 12px; border-radius: 999px; cursor: pointer; font-size: 12px;
   letter-spacing: 0.1em; border: 1px solid var(--border);
-  background: transparent; color: var(--muted);
+  background: transparent; color: var(--muted); font-weight: 700;
 }
 .sub-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
 .stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
@@ -121,8 +121,8 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
   background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
   padding: 12px 10px; text-align: center;
 }
-.stat .lbl { font-size: 10px; color: var(--faint); letter-spacing: 0.1em; margin-bottom: 6px; }
-.stat .val { font-family: 'DM Mono', monospace; font-size: 19px; font-weight: 500; }
+.stat .lbl { font-size: 12px; color: var(--faint); letter-spacing: 0.1em; margin-bottom: 6px; }
+.stat .val { font-family: 'DM Mono', monospace; font-size: 23px; font-weight: 800; }
 .row { display: flex; gap: 8px; }
 .col { display: flex; flex-direction: column; gap: 8px; }
 .form-panel {
@@ -144,7 +144,7 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
     <div class="logo-wrap" id="headerLogo" title="Click to upload your logo PNG"></div>
     <div style="display:flex;align-items:center;gap:12px;">
       <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(217,168,68,0.45))"></div>
-      <div style="font-size:10px;letter-spacing:0.34em;color:var(--gold);">MASTER BUSINESS DASHBOARD</div>
+      <div style="font-size:12px;letter-spacing:0.34em;color:var(--gold);">MASTER BUSINESS DASHBOARD</div>
       <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(217,168,68,0.45),transparent)"></div>
     </div>
   </header>
@@ -156,12 +156,12 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
   <div class="sub-tabs" id="subTabs"></div>
   <div id="content"></div>
   <div style="margin-top:32px;display:flex;justify-content:center;gap:8px">
-    <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px" onclick="exportData()">⬇ EXPORT DATA</button>
-    <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px" onclick="document.getElementById('dataFile').click()">⬆ IMPORT DATA</button>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="exportData()">💾 EXPORT DATA</button>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="document.getElementById('dataFile').click()">📥 IMPORT DATA</button>
   </div>
   <input type="file" id="dataFile" accept=".json,application/json" style="display:none">
   <input type="file" id="bgFile" accept="image/*" style="display:none">
-  <div style="margin-top:14px;text-align:center;font-size:10px;letter-spacing:0.2em;color:#1e293b;" id="footer"></div>
+  <div style="margin-top:14px;text-align:center;font-size:12px;letter-spacing:0.2em;color:#1e293b;" id="footer"></div>
 </div>
 <div id="bgCorner"></div>
 
@@ -208,12 +208,12 @@ function logoHTML() {
 
 // ---------- Businesses ----------
 const BIZ = {
-  centauri: { name: "CENTAURI WORLD LLC", short: "Centauri", accent: "#C4993A" },
-  keypr:    { name: "KEYPR ON COMPANY",  short: "Keypr",    accent: "#1fd3ee" },
+  centauri: { name: "🌐 CENTAURI WORLD LLC", short: "Centauri", accent: "#C4993A" },
+  keypr:    { name: "🔑 KEYPR ON COMPANY",  short: "Keypr",    accent: "#1fd3ee" },
 };
 const TABS = [
-  ["profile","PROFILE"],["projects","PROJECTS"],["catalog","PRODUCTS"],["financials","FINANCIALS"],
-  ["deadlines","DEADLINES"],["contacts","CONTACTS"],["notes","NOTES"],
+  ["profile","👤 PROFILE"],["projects","📋 PROJECTS"],["catalog","📦 PRODUCTS"],["financials","💰 FINANCIALS"],
+  ["deadlines","⏰ DEADLINES"],["contacts","👥 CONTACTS"],["notes","📝 NOTES"],
 ];
 
 // ---------- Keypr On wordmark (logo colors: neon cyan + red) ----------
@@ -405,9 +405,9 @@ function renderLogos() {
     wm.innerHTML = `<div class="logo-wrap" style="width:min(520px,85vw)">${logoHTML()}</div>`;
   }
   document.getElementById("bgCorner").innerHTML = _state.bg
-    ? `<button class="btn btn-ghost" style="font-size:9px;padding:4px 9px" title="Change background image" onclick="document.getElementById('bgFile').click()">⛰</button>
-       <button class="btn btn-ghost" style="font-size:9px;padding:4px 9px" title="Remove background image" onclick="clearBg()">✕</button>`
-    : `<button class="btn btn-ghost" style="font-size:9px;padding:4px 9px" title="Set background image" onclick="document.getElementById('bgFile').click()">⛰ BG</button>`;
+    ? `<button class="btn btn-ghost" style="font-size:11px;padding:4px 9px" title="Change background image" onclick="document.getElementById('bgFile').click()">⛰</button>
+       <button class="btn btn-ghost" style="font-size:11px;padding:4px 9px" title="Remove background image" onclick="clearBg()">✕</button>`
+    : `<button class="btn btn-ghost" style="font-size:11px;padding:4px 9px" title="Set background image" onclick="document.getElementById('bgFile').click()">⛰ BG</button>`;
 }
 function clearBg(){ _state.bg = null; commit(); }
 function renderBizTabs() {
@@ -446,23 +446,23 @@ function ring(pct,color,size=48){
     <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="3"
       stroke-dasharray="${c}" stroke-dashoffset="${o}" style="stroke-linecap:round;transition:stroke-dashoffset 1s ease"/>
     <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central"
-      style="transform:rotate(90deg);transform-origin:50% 50%;fill:${color};font-size:11px;font-weight:600">${pct}%</text>
+      style="transform:rotate(90deg);transform-origin:50% 50%;fill:${color};font-size:13px;font-weight:600">${pct}%</text>
   </svg>`;
 }
 function rProjects(biz) {
   const s=_state, ps=s.projects.filter(p=>p.biz===biz), st=projStats(biz);
   let html = `
   <div class="stats">
-    <div class="stat"><div class="lbl">OVERALL</div><div class="val" style="color:${BIZ[biz].accent}">${st.pct}%</div></div>
-    <div class="stat"><div class="lbl">STEPS DONE</div><div class="val" style="color:var(--green)">${st.done}/${st.total}</div></div>
-    <div class="stat"><div class="lbl">WAITING ON</div><div class="val" style="color:var(--amber)">${st.waiting}</div></div>
+    <div class="stat"><div class="lbl">📊 OVERALL</div><div class="val" style="color:${BIZ[biz].accent}">${st.pct}%</div></div>
+    <div class="stat"><div class="lbl">✅ STEPS DONE</div><div class="val" style="color:var(--green)">${st.done}/${st.total}</div></div>
+    <div class="stat"><div class="lbl">⏳ WAITING ON</div><div class="val" style="color:var(--amber)">${st.waiting}</div></div>
   </div>
   <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-bottom:14px;">
     <div style="height:100%;width:${st.pct}%;background:linear-gradient(90deg,${BIZ[biz].accent},var(--green));transition:width 1s ease"></div>
   </div>`;
   if (ui.showNewProject) {
     html += `<div class="form-panel">
-      <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent);">NEW PROJECT — ${BIZ[biz].name}</div>
+      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent);">NEW PROJECT — ${BIZ[biz].name}</div>
       <input id="np-title" placeholder="Project title">
       <input id="np-sub" placeholder="Subtitle / description">
       <div class="grid2">
@@ -473,12 +473,12 @@ function rProjects(biz) {
         </select>
       </div>
       <div class="row">
-        <button class="btn btn-red" style="flex:1" onclick="addProject('${biz}')">SAVE PROJECT</button>
+        <button class="btn btn-red" style="flex:1" onclick="addProject('${biz}')">💾 SAVE PROJECT</button>
         <button class="btn btn-ghost" onclick="ui.showNewProject=false;render()">CANCEL</button>
       </div>
     </div>`;
   } else {
-    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showNewProject=true;render()">+ NEW PROJECT</button>`;
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showNewProject=true;render()">➕ NEW PROJECT</button>`;
   }
   if (!ps.length) html += `<div class="empty">No projects for ${BIZ[biz].short} yet.</div>`;
   html += `<div class="col" style="gap:12px">` + ps.map(p=>projCard(p)).join("") + `</div>`;
@@ -499,21 +499,21 @@ function projCard(p) {
           <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
             <span class="chip" style="background:${bc}22;color:${bc};border:1px solid ${bc}44">${esc(p.brand)}</span>
             <span class="chip" style="background:${meta.accent}22;color:${meta.accent};border:1px solid ${meta.accent}44">${meta.label}</span>
-            <span style="font-size:10px;color:#475569;margin-left:auto">${meta.priority}</span>
+            <span style="font-size:12px;color:#475569;margin-left:auto">${meta.priority}</span>
           </div>
-          <div class="syne" style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:2px">${esc(p.title)}</div>
-          <div style="font-size:11px;color:#475569">${esc(p.subtitle)}</div>
+          <div class="syne" style="font-size:17px;font-weight:700;color:#f1f5f9;margin-bottom:2px">${esc(p.title)}</div>
+          <div style="font-size:13px;color:#475569">${esc(p.subtitle)}</div>
         </div>
       </div>
       <button class="del-x" title="Delete project" onclick="delProject('${p.id}')">🗑</button>
-      <div style="font-size:18px;color:#334155;cursor:pointer;transform:rotate(${open?180:0}deg);transition:transform .3s" onclick="toggleProject('${p.id}')">⌄</div>
+      <div style="font-size:20px;color:#334155;cursor:pointer;transform:rotate(${open?180:0}deg);transition:transform .3s" onclick="toggleProject('${p.id}')">⌄</div>
     </div>`;
   if (waiting) html += `
     <div style="margin:0 16px ${open?0:16}px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;display:flex;gap:10px;align-items:center;">
       <div style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;animation:pulse 2s infinite"></div>
-      <div><div style="font-size:10px;color:var(--amber);letter-spacing:0.12em;margin-bottom:2px">WAITING ON</div>
-      <div style="font-size:12px;color:#fde68a">${esc(waiting.detail)}</div>
-      <div style="font-size:11px;color:#92400e">${esc(waiting.sub)}</div></div>
+      <div><div style="font-size:12px;color:var(--amber);letter-spacing:0.12em;margin-bottom:2px">WAITING ON</div>
+      <div style="font-size:14px;color:#fde68a">${esc(waiting.detail)}</div>
+      <div style="font-size:13px;color:#92400e">${esc(waiting.sub)}</div></div>
     </div>`;
   if (open) {
     html += `<div style="padding:14px 16px 16px"><div class="col">`;
@@ -521,12 +521,12 @@ function projCard(p) {
       const sc = STEP_COLORS[step.status];
       return `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:8px;padding:10px 14px;display:flex;gap:12px;align-items:flex-start">
         <div onclick="cycleStep('${p.id}',${step.id})" title="Click to cycle status"
-          style="width:24px;height:24px;border-radius:6px;background:${step.status==='upcoming'?'rgba(255,255,255,0.05)':sc.text+'22'};border:1px solid ${sc.border};display:flex;align-items:center;justify-content:center;font-size:11px;color:${sc.text};flex-shrink:0;cursor:pointer;user-select:none">
+          style="width:24px;height:24px;border-radius:6px;background:${step.status==='upcoming'?'rgba(255,255,255,0.05)':sc.text+'22'};border:1px solid ${sc.border};display:flex;align-items:center;justify-content:center;font-size:13px;color:${sc.text};flex-shrink:0;cursor:pointer;user-select:none">
           ${step.status==="done"?"✓":step.id}</div>
         <div style="flex:1;min-width:0">
-          <div style="font-size:13px;font-weight:500;color:${step.status==='upcoming'?'#475569':'#e2e8f0'};margin-bottom:2px">${esc(step.label)}</div>
-          <div style="font-size:12px;color:${step.status==='upcoming'?'#334155':'#94a3b8'}">${esc(step.detail)}</div>
-          ${step.sub?`<div style="font-size:11px;color:${step.status==='done'?'#065f46':step.status==='waiting'?'#92400e':'#1e293b'};margin-top:2px">${esc(step.sub)}</div>`:''}
+          <div style="font-size:15px;font-weight:500;color:${step.status==='upcoming'?'#475569':'#e2e8f0'};margin-bottom:2px">${esc(step.label)}</div>
+          <div style="font-size:14px;color:${step.status==='upcoming'?'#334155':'#94a3b8'}">${esc(step.detail)}</div>
+          ${step.sub?`<div style="font-size:13px;color:${step.status==='done'?'#065f46':step.status==='waiting'?'#92400e':'#1e293b'};margin-top:2px">${esc(step.sub)}</div>`:''}
         </div>
         <button class="del-x" onclick="delStep('${p.id}',${step.id})">×</button>
       </div>`;
@@ -542,7 +542,7 @@ function projCard(p) {
           <button class="btn btn-ghost" onclick="ui.addStepFor=null;render()">✕</button>
         </div></div>`;
     } else {
-      html += `<button class="btn-dashed" onclick="ui.addStepFor='${p.id}';render()">+ ADD STEP</button>`;
+      html += `<button class="btn-dashed" onclick="ui.addStepFor='${p.id}';render()">➕ ADD STEP</button>`;
     }
     html += `</div></div>`;
   }
@@ -650,7 +650,7 @@ function lqsColor(v){ return v>=80 ? "var(--green)" : v>=60 ? "var(--amber)" : "
 function prodForm(biz, p) {
   const v = k => esc(p ? p[k] : "");
   return `<div class="form-panel">
-    <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent)">${p?"EDIT":"NEW"} PRODUCT — ${BIZ[biz].name}</div>
+    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">${p?"EDIT":"NEW"} PRODUCT — ${BIZ[biz].name}</div>
     <input id="pr-name" placeholder="Product name" value="${v("name")}">
     <div class="grid2"><input id="pr-brand" placeholder="Brand" value="${v("brand")}"><input id="pr-sku" placeholder="SKU" value="${v("sku")}"></div>
     <div class="grid2"><input id="pr-price" type="number" step="0.01" placeholder="Sale price $" value="${p?p.price:""}"><input id="pr-margin" type="number" step="0.1" placeholder="Margin %" value="${p?p.margin:""}"></div>
@@ -660,7 +660,7 @@ function prodForm(biz, p) {
     <input id="pr-url" placeholder="Listing URL" value="${v("url")}">
     <input id="pr-notes" placeholder="Notes" value="${v("notes")}">
     <div class="row">
-      <button class="btn btn-red" style="flex:1" onclick="saveProd('${biz}',${p?`'${p.id}'`:"null"})">SAVE PRODUCT</button>
+      <button class="btn btn-red" style="flex:1" onclick="saveProd('${biz}',${p?`'${p.id}'`:"null"})">💾 SAVE PRODUCT</button>
       <button class="btn btn-ghost" onclick="ui.editProd=null;ui.showForm.prod=false;render()">CANCEL</button>
     </div></div>`;
 }
@@ -668,32 +668,32 @@ function rCatalog(biz) {
   const rows = _state.catalog[biz], m = _state.catalogMeta[biz], st = catStats(biz);
   const isK = biz === "keypr";
   let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
-    <div class="section-title" style="margin:0">PRODUCT PORTFOLIO — ${BIZ[biz].name}</div>
+    <div class="section-title" style="margin:0">📦 PRODUCT PORTFOLIO — ${BIZ[biz].name}</div>
   </div>
   <div class="stats">
-    <div class="stat"><div class="lbl">SKUS</div><div class="val" style="color:${BIZ[biz].accent}">${st.skus}</div></div>
-    <div class="stat"><div class="lbl">ON-HAND UNITS</div><div class="val" style="color:var(--blue)">${st.units}</div></div>
-    <div class="stat"><div class="lbl">AVAIL. EST. PROFIT</div><div class="val" style="color:var(--green)">$${Math.round(st.profit).toLocaleString("en-US")}</div></div>
+    <div class="stat"><div class="lbl">🏷️ SKUS</div><div class="val" style="color:${BIZ[biz].accent}">${st.skus}</div></div>
+    <div class="stat"><div class="lbl">📦 ON-HAND UNITS</div><div class="val" style="color:var(--blue)">${st.units}</div></div>
+    <div class="stat"><div class="lbl">💰 AVAIL. EST. PROFIT</div><div class="val" style="color:var(--green)">$${Math.round(st.profit).toLocaleString("en-US")}</div></div>
   </div>
   <div class="row" style="margin-bottom:10px">
-    <button class="btn btn-red" style="flex:2" onclick="updateCatalog('${biz}')">⟳ UPDATE</button>
-    ${biz==="centauri"?`<button class="btn btn-ghost" style="flex:1" onclick="connectWfsFolder()">◇ CONNECT FOLDER</button>`:""}
+    <button class="btn btn-red" style="flex:2" onclick="updateCatalog('${biz}')">🔄 UPDATE</button>
+    ${biz==="centauri"?`<button class="btn btn-ghost" style="flex:1" onclick="connectWfsFolder()">📂 CONNECT FOLDER</button>`:""}
     <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.url=!ui.showForm.url;render()">⚙ URL</button>
   </div>`;
   if (ui.showForm.url) {
     html += `<div class="form-panel">
-      <div style="font-size:10px;letter-spacing:0.15em;color:var(--accent)">DATA URL (optional — a published ${WFS_FILE} or exported JSON)</div>
+      <div style="font-size:12px;letter-spacing:0.15em;color:var(--accent)">DATA URL (optional — a published ${WFS_FILE} or exported JSON)</div>
       <input id="cat-url" placeholder="https://…/${WFS_FILE}" value="${esc(m.srcUrl)}">
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="saveCatUrl('${biz}')">SAVE URL</button>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="saveCatUrl('${biz}')">💾 SAVE URL</button>
       <button class="btn btn-ghost" onclick="ui.showForm.url=false;render()">CANCEL</button></div></div>`;
   }
-  if (ui.catStatus) html += `<div style="font-size:11px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.catStatus)}</div>`;
-  if (m.lastSync) html += `<div style="font-size:10px;color:#475569;letter-spacing:0.08em;margin-bottom:12px">LAST UPDATE: ${new Date(m.lastSync).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).toUpperCase()} · SOURCE: ${esc((m.source||"").toUpperCase())}${m.shipments?` · ${m.shipments} SHIPMENT(S) IN FILE`:""}</div>`;
+  if (ui.catStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.catStatus)}</div>`;
+  if (m.lastSync) html += `<div style="font-size:12px;color:#475569;letter-spacing:0.08em;margin-bottom:12px">LAST UPDATE: ${new Date(m.lastSync).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).toUpperCase()} · SOURCE: ${esc((m.source||"").toUpperCase())}${m.shipments?` · ${m.shipments} SHIPMENT(S) IN FILE`:""}</div>`;
   if (ui.showForm.prod && !ui.editProd) html += prodForm(biz, null);
-  else html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.prod=true;ui.editProd=null;render()">+ ADD PRODUCT MANUALLY</button>`;
+  else html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.prod=true;ui.editProd=null;render()">➕ ADD PRODUCT MANUALLY</button>`;
   if (!rows.length) html += `<div class="empty">No products yet.<br><br>${biz==="centauri"
-    ? "Click <b>⟳ UPDATE</b> to pull from your WFS Profit Tracker — connect the folder it auto-saves to (your Obsidian publish folder), or pick an exported JSON."
-    : "Click <b>⟳ UPDATE</b> to import a tracker/JSON export, or add products manually."}</div>`;
+    ? "Click <b>🔄 UPDATE</b> to pull from your WFS Profit Tracker — connect the folder it auto-saves to (your Obsidian publish folder), or pick an exported JSON."
+    : "Click <b>🔄 UPDATE</b> to import a tracker/JSON export, or add products manually."}</div>`;
   html += `<div class="col" style="gap:10px">` + rows.map(p => {
     if (ui.editProd === p.id) return prodForm(biz, p);
     const unitProfit = p.price * p.margin / 100;
@@ -708,17 +708,17 @@ function rCatalog(biz) {
           <button class="del-x" title="Delete" onclick="delProd('${biz}','${p.id}')">×</button>
         </span>
       </div>
-      <div class="syne" style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:3px">${
+      <div class="syne" style="font-size:16px;font-weight:700;color:#f1f5f9;margin-bottom:3px">${
         p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(p.name)} ↗</a>`:esc(p.name)}</div>
-      <div style="font-size:11px;color:#475569;margin-bottom:8px">${[p.sku&&"SKU "+p.sku, p.itemid&&"ID "+p.itemid, p.gtin&&"GTIN "+p.gtin].filter(Boolean).map(esc).join(" · ")||"—"}</div>
+      <div style="font-size:13px;color:#475569;margin-bottom:8px">${[p.sku&&"SKU "+p.sku, p.itemid&&"ID "+p.itemid, p.gtin&&"GTIN "+p.gtin].filter(Boolean).map(esc).join(" · ")||"—"}</div>
       <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:${p.notes?8:0}px">
-        <div><div style="font-size:9px;color:#334155;letter-spacing:0.1em">PRICE</div><div style="font-size:13px;color:#e2e8f0">${money(p.price)}</div></div>
-        <div><div style="font-size:9px;color:#334155;letter-spacing:0.1em">QTY</div><div style="font-size:13px;color:${p.qty===0?"#ef4444":"#e2e8f0"}">${p.qty}</div></div>
-        <div><div style="font-size:9px;color:#334155;letter-spacing:0.1em">PROFIT/UNIT</div><div style="font-size:13px;color:var(--green)">${money(unitProfit)} <span style="color:#475569;font-size:10px">(${p.margin}%)</span></div></div>
-        <div><div style="font-size:9px;color:#334155;letter-spacing:0.1em">LQS</div><div style="font-size:13px;color:${lqsColor(p.listingscore)}">${p.listingscore||"—"}${p.listingscore?"%":""}</div></div>
+        <div><div style="font-size:11px;color:#334155;letter-spacing:0.1em">PRICE</div><div style="font-size:15px;color:#e2e8f0">${money(p.price)}</div></div>
+        <div><div style="font-size:11px;color:#334155;letter-spacing:0.1em">QTY</div><div style="font-size:15px;color:${p.qty===0?"#ef4444":"#e2e8f0"}">${p.qty}</div></div>
+        <div><div style="font-size:11px;color:#334155;letter-spacing:0.1em">PROFIT/UNIT</div><div style="font-size:15px;color:var(--green)">${money(unitProfit)} <span style="color:#475569;font-size:12px">(${p.margin}%)</span></div></div>
+        <div><div style="font-size:11px;color:#334155;letter-spacing:0.1em">LQS</div><div style="font-size:15px;color:${lqsColor(p.listingscore)}">${p.listingscore||"—"}${p.listingscore?"%":""}</div></div>
       </div>
-      ${p.estsales?`<div style="font-size:10px;color:#475569;margin-bottom:${p.notes?4:0}px">Est. ${p.estsales} sales/mo · potential ${money(unitProfit*p.estsales)}/mo at full velocity</div>`:""}
-      ${p.notes?`<div style="font-size:11px;color:#64748b;border-top:1px solid rgba(255,255,255,0.05);padding-top:7px">${esc(p.notes)}</div>`:""}
+      ${p.estsales?`<div style="font-size:12px;color:#475569;margin-bottom:${p.notes?4:0}px">Est. ${p.estsales} sales/mo · potential ${money(unitProfit*p.estsales)}/mo at full velocity</div>`:""}
+      ${p.notes?`<div style="font-size:13px;color:#64748b;border-top:1px solid rgba(255,255,255,0.05);padding-top:7px">${esc(p.notes)}</div>`:""}
     </div>`;
   }).join("") + `</div>`;
   return html;
@@ -740,23 +740,23 @@ function delProd(biz,id){ if(!confirm("Delete this product?"))return; _state.cat
 // ========== FINANCIALS ==========
 function rFinancials(biz) {
   const rows=_state.financials[biz]||[];
-  let html = `<div class="section-title">FINANCIAL SNAPSHOT — ${BIZ[biz].name}</div>`;
+  let html = `<div class="section-title">💰 FINANCIAL SNAPSHOT — ${BIZ[biz].name}</div>`;
   if (ui.showForm.fin) {
     html += `<div class="form-panel">
       <input id="fin-label" placeholder="Metric (e.g. UNI5 monthly revenue)">
       <div class="grid2"><input id="fin-value" placeholder="Value (e.g. $9,085)"><input id="fin-note" placeholder="Note (optional)"></div>
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addFin('${biz}')">SAVE METRIC</button>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addFin('${biz}')">💾 SAVE METRIC</button>
       <button class="btn btn-ghost" onclick="ui.showForm.fin=false;render()">CANCEL</button></div></div>`;
   } else {
-    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.fin=true;render()">+ ADD METRIC</button>`;
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.fin=true;render()">➕ ADD METRIC</button>`;
   }
   if (!rows.length) html += `<div class="empty">No financial entries yet. Add revenue, margins, or SKU numbers you want to track.</div>`;
   html += `<div class="col">` + rows.map(r=>`
     <div class="card" style="padding:14px 16px;display:flex;align-items:center;gap:14px;">
       <div style="flex:1;min-width:0">
-        <div style="font-size:11px;color:var(--muted);letter-spacing:0.08em;margin-bottom:3px">${esc(r.label)}</div>
-        <div class="syne" style="font-size:20px;font-weight:800;color:${BIZ[biz].accent}">${esc(r.value)}</div>
-        ${r.note?`<div style="font-size:11px;color:#475569;margin-top:3px">${esc(r.note)}</div>`:''}
+        <div style="font-size:13px;color:var(--muted);letter-spacing:0.08em;margin-bottom:3px">${esc(r.label)}</div>
+        <div class="syne" style="font-size:24px;font-weight:800;color:${BIZ[biz].accent}">${esc(r.value)}</div>
+        ${r.note?`<div style="font-size:13px;color:#475569;margin-top:3px">${esc(r.note)}</div>`:''}
       </div>
       <button class="del-x" onclick="delFin('${biz}','${r.id}')">×</button>
     </div>`).join("") + `</div>`;
@@ -774,15 +774,15 @@ function delFin(biz,id){ _state.financials[biz]=_state.financials[biz].filter(r=
 function daysUntil(d){ return Math.ceil((new Date(d+"T23:59:59") - new Date())/86400000); }
 function rDeadlines(biz) {
   const rows=_state.deadlines.filter(d=>d.biz===biz).sort((a,b)=>a.date.localeCompare(b.date));
-  let html = `<div class="section-title">DEADLINES & REMINDERS — ${BIZ[biz].name}</div>`;
+  let html = `<div class="section-title">⏰ DEADLINES &amp; REMINDERS — ${BIZ[biz].name}</div>`;
   if (ui.showForm.dl) {
     html += `<div class="form-panel">
       <input id="dl-title" placeholder="What's due? (e.g. Restock UNI5)">
       <div class="grid2"><input id="dl-date" type="date"><input id="dl-note" placeholder="Note (optional)"></div>
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDl('${biz}')">SAVE DEADLINE</button>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDl('${biz}')">💾 SAVE DEADLINE</button>
       <button class="btn btn-ghost" onclick="ui.showForm.dl=false;render()">CANCEL</button></div></div>`;
   } else {
-    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.dl=true;render()">+ ADD DEADLINE</button>`;
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.dl=true;render()">➕ ADD DEADLINE</button>`;
   }
   if (!rows.length) html += `<div class="empty">No deadlines tracked for ${BIZ[biz].short}.</div>`;
   html += `<div class="col">` + rows.map(d=>{
@@ -794,8 +794,8 @@ function rDeadlines(biz) {
     return `<div class="card" style="padding:13px 16px;display:flex;align-items:center;gap:12px;${d.done?'opacity:0.55':''}">
       <div onclick="toggleDl('${d.id}')" title="Toggle done" style="width:22px;height:22px;border-radius:6px;border:1px solid ${d.done?'var(--green)':'rgba(255,255,255,0.15)'};display:flex;align-items:center;justify-content:center;color:var(--green);cursor:pointer;flex-shrink:0">${d.done?"✓":""}</div>
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;color:#e2e8f0;margin-bottom:2px;${d.done?'text-decoration:line-through':''}">${esc(d.title)}</div>
-        <div style="font-size:11px;color:#475569">${new Date(d.date+"T12:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}${d.note?` · ${esc(d.note)}`:''}</div>
+        <div style="font-size:15px;color:#e2e8f0;margin-bottom:2px;${d.done?'text-decoration:line-through':''}">${esc(d.title)}</div>
+        <div style="font-size:13px;color:#475569">${new Date(d.date+"T12:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}${d.note?` · ${esc(d.note)}`:''}</div>
       </div>
       ${badge}<button class="del-x" onclick="delDl('${d.id}')">×</button>
     </div>`;
@@ -814,10 +814,10 @@ function delDl(id){ _state.deadlines=_state.deadlines.filter(x=>x.id!==id); comm
 // ========== CONTACTS ==========
 function rContacts(biz) {
   const tab = ui.contactTab;
-  let html = `<div class="section-title">CONTACTS — ${BIZ[biz].name}</div>
+  let html = `<div class="section-title">👥 CONTACTS — ${BIZ[biz].name}</div>
   <div class="sub-tabs" style="margin-bottom:14px">
-    <button class="sub-tab ${tab==='list'?'active':''}" onclick="ui.contactTab='list';render()">CONTACT LIST</button>
-    <button class="sub-tab ${tab==='links'?'active':''}" onclick="ui.contactTab='links';render()">CROSS-BUSINESS LINKS</button>
+    <button class="sub-tab ${tab==='list'?'active':''}" onclick="ui.contactTab='list';render()">📇 CONTACT LIST</button>
+    <button class="sub-tab ${tab==='links'?'active':''}" onclick="ui.contactTab='links';render()">🔗 CROSS-BUSINESS LINKS</button>
   </div>`;
   if (tab==="links") return html + rLinks();
   const rows=_state.contacts.filter(c=>c.biz===biz);
@@ -827,10 +827,10 @@ function rContacts(biz) {
       <div class="grid2"><input id="ct-role" placeholder="Role (e.g. Supplier, Lab)"><input id="ct-phone" placeholder="Phone"></div>
       <input id="ct-email" placeholder="Email">
       <input id="ct-notes" placeholder="Notes">
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addContact('${biz}')">SAVE CONTACT</button>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addContact('${biz}')">💾 SAVE CONTACT</button>
       <button class="btn btn-ghost" onclick="ui.showForm.ct=false;render()">CANCEL</button></div></div>`;
   } else {
-    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.ct=true;render()">+ ADD CONTACT</button>`;
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.ct=true;render()">➕ ADD CONTACT</button>`;
   }
   if (!rows.length) html += `<div class="empty">No contacts for ${BIZ[biz].short} yet.</div>`;
   html += `<div class="col">` + rows.map(c=>{
@@ -839,12 +839,12 @@ function rContacts(biz) {
       <div style="width:36px;height:36px;border-radius:10px;background:${BIZ[biz].accent}18;border:1px solid ${BIZ[biz].accent}44;display:flex;align-items:center;justify-content:center;color:${BIZ[biz].accent};font-weight:600;flex-shrink:0">${esc(c.name.charAt(0).toUpperCase())}</div>
       <div style="flex:1;min-width:0">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:13px;font-weight:500;color:#f1f5f9">${esc(c.name)}</span>
+          <span style="font-size:15px;font-weight:500;color:#f1f5f9">${esc(c.name)}</span>
           ${c.role?`<span class="chip" style="background:rgba(139,92,246,0.15);color:var(--purple);border:1px solid rgba(139,92,246,0.35)">${esc(c.role.toUpperCase())}</span>`:''}
           ${linked?`<span class="chip" style="background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-brd)">🔗 LINKED</span>`:''}
         </div>
-        <div style="font-size:11px;color:#64748b;margin-top:3px">${[c.phone,c.email].filter(Boolean).map(esc).join(" · ")||"—"}</div>
-        ${c.notes?`<div style="font-size:11px;color:#475569;margin-top:3px">${esc(c.notes)}</div>`:''}
+        <div style="font-size:13px;color:#64748b;margin-top:3px">${[c.phone,c.email].filter(Boolean).map(esc).join(" · ")||"—"}</div>
+        ${c.notes?`<div style="font-size:13px;color:#475569;margin-top:3px">${esc(c.notes)}</div>`:''}
       </div>
       <button class="del-x" onclick="delContact('${c.id}')">×</button>
     </div>`;
@@ -860,18 +860,18 @@ function rLinks() {
       Centauri contacts: ${cent.length} · Keypr contacts: ${key.length}</div>`;
   } else if (ui.showForm.lk) {
     html += `<div class="form-panel">
-      <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent)">LINK A CONTACT ACROSS BUSINESSES</div>
+      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">LINK A CONTACT ACROSS BUSINESSES</div>
       <div class="grid2">
-        <div><div style="font-size:10px;color:${BIZ.centauri.accent};letter-spacing:0.1em;margin-bottom:5px">CENTAURI WORLD</div>
+        <div><div style="font-size:12px;color:${BIZ.centauri.accent};letter-spacing:0.1em;margin-bottom:5px">CENTAURI WORLD</div>
         <select id="lk-a">${cent.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
-        <div><div style="font-size:10px;color:${BIZ.keypr.accent};letter-spacing:0.1em;margin-bottom:5px">KEYPR ON</div>
+        <div><div style="font-size:12px;color:${BIZ.keypr.accent};letter-spacing:0.1em;margin-bottom:5px">KEYPR ON</div>
         <select id="lk-b">${key.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
       </div>
       <input id="lk-note" placeholder="Relationship note (e.g. same supplier, shared 3PL)">
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addLink()">CREATE LINK</button>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addLink()">🔗 CREATE LINK</button>
       <button class="btn btn-ghost" onclick="ui.showForm.lk=false;render()">CANCEL</button></div></div>`;
   } else {
-    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.lk=true;render()">+ LINK CONTACTS</button>`;
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.lk=true;render()">🔗 LINK CONTACTS</button>`;
   }
   if (!_state.links.length) html += `<div class="empty">No cross-business links yet. Links connect a Centauri contact with a Keypr contact — useful for shared suppliers, labs, or service providers.</div>`;
   html += `<div class="col">` + _state.links.map(l=>{
@@ -880,11 +880,11 @@ function rLinks() {
     return `<div class="card" style="padding:14px 16px">
       <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
         <span class="chip" style="background:${BIZ.centauri.accent}18;color:${BIZ.centauri.accent};border:1px solid ${BIZ.centauri.accent}44">${esc(a.name)}</span>
-        <span style="color:var(--accent);font-size:14px">⟷</span>
+        <span style="color:var(--accent);font-size:16px">⟷</span>
         <span class="chip" style="background:${BIZ.keypr.accent}18;color:${BIZ.keypr.accent};border:1px solid ${BIZ.keypr.accent}44">${esc(b.name)}</span>
         <button class="del-x" style="margin-left:auto" onclick="delLink('${l.id}')">×</button>
       </div>
-      ${l.note?`<div style="font-size:11px;color:#64748b;margin-top:8px">${esc(l.note)}</div>`:''}
+      ${l.note?`<div style="font-size:13px;color:#64748b;margin-top:8px">${esc(l.note)}</div>`:''}
     </div>`;
   }).join("") + `</div>`;
   return html;
@@ -911,17 +911,17 @@ function delLink(id){ _state.links=_state.links.filter(l=>l.id!==id); commit(); 
 // ========== NOTES ==========
 function rNotes(biz) {
   const rows=_state.notes.filter(n=>n.biz===biz).sort((a,b)=>b.ts-a.ts);
-  let html = `<div class="section-title">NOTES & IDEAS — ${BIZ[biz].name}</div>
+  let html = `<div class="section-title">📝 NOTES &amp; IDEAS — ${BIZ[biz].name}</div>
   <div class="form-panel" style="background:var(--panel);border-color:var(--border)">
     <textarea id="note-text" rows="3" placeholder="Capture an idea, decision, or reminder for ${BIZ[biz].short}..."></textarea>
-    <button class="btn btn-red" onclick="addNote('${biz}')">SAVE NOTE</button>
+    <button class="btn btn-red" onclick="addNote('${biz}')">💾 SAVE NOTE</button>
   </div>`;
   if (!rows.length) html += `<div class="empty">No notes yet.</div>`;
   html += `<div class="col">` + rows.map(n=>`
     <div class="card" style="padding:13px 16px;display:flex;gap:12px;align-items:flex-start">
       <div style="flex:1;min-width:0">
-        <div style="font-size:13px;color:#cbd5e1;white-space:pre-wrap;word-break:break-word">${esc(n.text)}</div>
-        <div style="font-size:10px;color:#334155;margin-top:6px;letter-spacing:0.08em">${new Date(n.ts).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}).toUpperCase()}</div>
+        <div style="font-size:15px;color:#cbd5e1;white-space:pre-wrap;word-break:break-word">${esc(n.text)}</div>
+        <div style="font-size:12px;color:#334155;margin-top:6px;letter-spacing:0.08em">${new Date(n.ts).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}).toUpperCase()}</div>
       </div>
       <button class="del-x" onclick="delNote('${n.id}')">×</button>
     </div>`).join("") + `</div>`;
@@ -936,7 +936,7 @@ function delNote(id){ _state.notes=_state.notes.filter(n=>n.id!==id); commit(); 
 // ========== PROFILE (structured business profile + autofill) ==========
 // Every value lives in THIS browser's storage only — nothing is uploaded anywhere.
 const BP_GROUPS = [
-  ["legal","LEGAL IDENTITY",[
+  ["legal","⚖️ LEGAL IDENTITY",[
     ["legalName","Legal business name",["legal business name","legal name","entity name","name of entity"]],
     ["dba","DBA / trade name",["doing business as","trade name","fictitious name","dba"]],
     ["entityType","Entity type (LLC, Corp…)",["entity type","company type","type of entity"]],
@@ -947,29 +947,29 @@ const BP_GROUPS = [
     ["duns","D-U-N-S number",["d-u-n-s","duns"]],
     ["naics","NAICS / SIC code",["naics","sic code"]],
   ]],
-  ["agent","REGISTERED AGENT",[
+  ["agent","🏛️ REGISTERED AGENT",[
     ["agentName","Agent name",["registered agent name","registered agent"]],
     ["agentAddress","Agent address",["agent address","registered office"]],
   ]],
-  ["addr","ADDRESSES",[
+  ["addr","📍 ADDRESSES",[
     ["principalAddr","Principal business address",["principal place of business","principal address","principal office","business address"]],
     ["mailingAddr","Mailing address",["mailing address"]],
     ["warehouseAddr","Physical / warehouse address",["warehouse address","physical address"]],
   ]],
-  ["contact","CONTACT",[
+  ["contact","☎️ CONTACT",[
     ["phone","Business phone",["business phone","phone number","telephone","phone"]],
     ["email","Business email",["business email","email address","e-mail","email"]],
     ["website","Website / domain",["website","web site","domain","url"]],
     ["custService","Customer service email / phone",["customer service","support email","support phone"]],
   ]],
-  ["owner","OWNERSHIP & MANAGEMENT",[
+  ["owner","👑 OWNERSHIP &amp; MANAGEMENT",[
     ["owners","Owner(s) / officers & titles",["managing member","authorized member","officer name","owner name","president","member name"]],
     ["ownershipPct","Ownership %",["ownership percentage","ownership %","percent owned"]],
     ["ownerSsn","Owner SSN / ITIN",["social security","itin","ssn"]],
     ["ownerDob","Owner DOB",["date of birth","birth date","dob"]],
     ["ownerHomeAddr","Owner home address",["home address","residential address","residence address"]],
   ]],
-  ["bank","BANKING & FINANCE",[
+  ["bank","🏦 BANKING &amp; FINANCE",[
     ["bankName","Business bank name",["bank name","banking institution"]],
     ["acctRouting","Account & routing numbers",["routing number","account number","aba number"]],
     ["creditCards","Business credit cards",["business credit card","credit card ending"]],
@@ -977,13 +977,13 @@ const BP_GROUPS = [
     ["annualRevenue","Annual revenue estimate",["annual revenue","yearly revenue","gross annual","annual sales"]],
     ["creditBureaus","Business credit bureaus (PAYDEX, Intelliscore…)",["paydex","intelliscore","credit bureau"]],
   ]],
-  ["tax","TAX & COMPLIANCE",[
+  ["tax","🧾 TAX &amp; COMPLIANCE",[
     ["salesTaxPermit","Sales tax permit / resale certificate #",["sales tax permit","resale certificate","seller's permit","sales and use tax"]],
     ["annualReportDue","Annual report due date",["annual report due","annual report"]],
     ["licenses","Business licenses / permits",["business license","license number","permit number"]],
     ["insurance","Insurance policies (GL, product liability) + #s",["policy number","general liability","insurance policy"]],
   ]],
-  ["platform","PLATFORM / OPERATIONS",[
+  ["platform","🛒 PLATFORM / OPERATIONS",[
     ["amazonId","Amazon Seller Central account ID",["seller central account","merchant token","amazon seller id"]],
     ["walmartId","Walmart Seller ID",["walmart seller id","partner id"]],
     ["gs1Prefix","GS1 / UPC prefix",["gs1 company prefix","upc prefix","gs1"]],
@@ -992,12 +992,12 @@ const BP_GROUPS = [
     ["marketplaces","Marketplaces",["marketplace"]],
     ["keyIds","Key IDs / SKUs",[]],
   ]],
-  ["digital","DIGITAL ASSETS",[
+  ["digital","💻 DIGITAL ASSETS",[
     ["domainRegistrar","Domain registrar & renewal date",["registrar","godaddy","namecheap","renewal date"]],
     ["hostingProvider","Hosting provider",["hosting provider","hosted by","hosting"]],
     ["loginsLocation","Key logins location (password manager ref)",["password manager","1password","bitwarden","lastpass"]],
   ]],
-  ["brand","BRAND & NOTES",[
+  ["brand","🎨 BRAND &amp; NOTES",[
     ["brands","Brands",[]],
     ["colors","Brand colors",[]],
     ["notes","Notes",[]],
@@ -1098,22 +1098,22 @@ function applyAutofill(){
 }
 function rProfile(biz) {
   const bp = _state.bp[biz];
-  let html = `<div class="section-title">BUSINESS PROFILE — ${BIZ[biz].name}</div>`;
+  let html = `<div class="section-title">👤 BUSINESS PROFILE — ${BIZ[biz].name}</div>`;
   if (biz==="keypr") html += `<div style="width:290px;margin:0 auto 14px">${keyprLogoSVG()}</div>`;
   if (biz==="centauri") html += `<div style="width:290px;margin:0 auto 14px">${centauriLogoSVG()}</div>`;
   html += `<button class="btn btn-red" style="width:100%;margin-bottom:8px" onclick="pickAutofill('${biz}')">⚡ AUTOFILL FROM SCREENSHOT / PDF</button>
-  <div style="font-size:10px;color:#334155;margin-bottom:12px;text-align:center">OCR runs locally in your browser — the file is never uploaded. You review every value before it saves. 🔒 All profile data stays on this device.</div>`;
-  if (ui.afStatus) html += `<div style="font-size:11px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  <div style="font-size:12px;color:#334155;margin-bottom:12px;text-align:center">OCR runs locally in your browser — the file is never uploaded. You review every value before it saves. 🔒 All profile data stays on this device.</div>`;
+  if (ui.afStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
   if (ui.afResults && ui.afResults.biz===biz) {
     html += `<div class="form-panel">
-      <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent)">REVIEW AUTOFILL — ${ui.afResults.items.length} MATCH(ES). UNCHECK ANYTHING WRONG.</div>` +
+      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">REVIEW AUTOFILL — ${ui.afResults.items.length} MATCH(ES). UNCHECK ANYTHING WRONG.</div>` +
       ui.afResults.items.map((it,i)=>`
       <div style="display:flex;gap:8px;align-items:center">
         <input type="checkbox" id="af-c-${i}" ${bp[it.k]?"":"checked"} style="width:auto;flex-shrink:0">
-        <div style="width:170px;flex-shrink:0;font-size:10px;color:var(--muted)">${it.label}${bp[it.k]?` <span style="color:var(--amber)">(overwrites)</span>`:""}</div>
+        <div style="width:170px;flex-shrink:0;font-size:12px;color:var(--muted)">${it.label}${bp[it.k]?` <span style="color:var(--amber)">(overwrites)</span>`:""}</div>
         <input id="af-v-${i}" value="${esc(it.value)}" style="flex:1">
       </div>`).join("") + `
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="applyAutofill()">APPLY CHECKED</button>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="applyAutofill()">✅ APPLY CHECKED</button>
       <button class="btn btn-ghost" onclick="ui.afResults=null;render()">DISMISS</button></div></div>`;
   }
   for (const [gid, title, fields] of BP_GROUPS) {
@@ -1121,21 +1121,21 @@ function rProfile(biz) {
     const editing = ui.editGroup === gid;
     html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled?`border-left:3px solid ${BIZ[biz].accent};`:""}">
       <div style="display:flex;align-items:center;gap:8px;${editing||filled?"margin-bottom:10px;":""}">
-        <div style="font-size:10px;letter-spacing:0.22em;color:var(--accent)">${title}</div>
+        <div style="font-size:12px;letter-spacing:0.22em;color:var(--accent)">${title}</div>
         <span class="chip" style="background:rgba(255,255,255,0.05);color:${filled===fields.length?"var(--green)":"var(--muted)"};border:1px solid rgba(255,255,255,0.1)">${filled}/${fields.length}</span>
-        <button class="btn btn-ghost" style="margin-left:auto;font-size:9px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
       </div>`;
     if (editing) {
       html += `<div class="col">` + fields.map(([k,label])=>`
-        <div><div style="font-size:10px;color:var(--muted);letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
+        <div><div style="font-size:12px;color:var(--muted);letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
         <input id="bp-${k}" value="${esc(bp[k]||"")}"></div>`).join("") + `
-        <button class="btn btn-red" onclick="saveBpGroup('${biz}','${gid}')">SAVE ${title}</button>
+        <button class="btn btn-red" onclick="saveBpGroup('${biz}','${gid}')">💾 SAVE ${title}</button>
       </div>`;
     } else if (filled) {
       html += fields.filter(([k])=>bp[k]).map(([k,label])=>`
         <div style="margin-bottom:9px">
-          <div style="font-size:10px;color:var(--faint);letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
-          <div style="font-size:13px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${esc(bp[k])}</div>
+          <div style="font-size:12px;color:var(--faint);letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
+          <div style="font-size:15px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${esc(bp[k])}</div>
         </div>`).join("");
     }
     html += `</div>`;
@@ -1205,23 +1205,23 @@ function centauriLogoSVG() {
 }
 function rDocs(biz) {
   const D=_state.docs[biz], scan=D.scan||{files:[]};
-  let html = `<div class="section-title" style="margin-top:26px">BUSINESS DOCUMENTS — ${BIZ[biz].name}</div>
+  let html = `<div class="section-title" style="margin-top:26px">📂 BUSINESS DOCUMENTS — ${BIZ[biz].name}</div>
   <div class="row" style="margin-bottom:10px;flex-wrap:wrap">
-    <button class="btn btn-red" style="flex:2;min-width:110px" onclick="scanDocs('${biz}')">⟳ UPDATE</button>
-    <button class="btn btn-ghost" style="flex:2;min-width:150px" onclick="connectDocsFolder('${biz}')">◇ CONNECT OBSIDIAN FOLDER</button>
-    <button class="btn btn-ghost" style="flex:1" onclick="pickDocFiles('${biz}')">+ FILES</button>
-    <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.dlink=!ui.showForm.dlink;render()">+ LINK</button>
+    <button class="btn btn-red" style="flex:2;min-width:110px" onclick="scanDocs('${biz}')">🔄 UPDATE</button>
+    <button class="btn btn-ghost" style="flex:2;min-width:150px" onclick="connectDocsFolder('${biz}')">📂 CONNECT OBSIDIAN FOLDER</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="pickDocFiles('${biz}')">📎 FILES</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.dlink=!ui.showForm.dlink;render()">🔗 LINK</button>
   </div>
-  <div style="font-size:10px;color:#334155;margin-bottom:10px">Tip: with this page open you can paste (Ctrl+V) a screenshot straight into saved files.</div>`;
-  if (ui.docStatus) html += `<div style="font-size:11px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.docStatus)}</div>`;
+  <div style="font-size:12px;color:#334155;margin-bottom:10px">Tip: with this page open you can paste (Ctrl+V) a screenshot straight into saved files.</div>`;
+  if (ui.docStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.docStatus)}</div>`;
   if (ui.showForm.dlink) {
     html += `<div class="form-panel">
-      <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent)">ADD LINK</div>
+      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">ADD LINK</div>
       <input id="dk-label" placeholder="Label (e.g. Walmart Seller Center)">
       <input id="dk-url" placeholder="https://…">
-      <label style="display:flex;gap:8px;align-items:center;font-size:11px;color:#94a3b8;cursor:pointer">
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:#94a3b8;cursor:pointer">
         <input type="checkbox" id="dk-dnb" style="width:auto"> Put in the Dun &amp; Bradstreet section</label>
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDocLink('${biz}')">SAVE LINK</button>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDocLink('${biz}')">💾 SAVE LINK</button>
       <button class="btn btn-ghost" onclick="ui.showForm.dlink=false;render()">CANCEL</button></div></div>`;
   }
   // --- Dun & Bradstreet panel ---
@@ -1230,36 +1230,36 @@ function rDocs(biz) {
     ${D.dnb.length ? `<div class="col">`+D.dnb.map(l=>`
       <div style="display:flex;gap:10px;align-items:center">
         <span style="flex-shrink:0">🔗</span>
-        <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:12px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
+        <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:14px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
         <button class="del-x" onclick="delDocLink('${biz}','dnb','${l.id}')">×</button>
-      </div>`).join("")+`</div>` : `<div style="font-size:11px;color:#475569">No D&amp;B links yet — use + LINK and check the D&amp;B box.</div>`}
+      </div>`).join("")+`</div>` : `<div style="font-size:13px;color:#475569">No D&amp;B links yet — use + LINK and check the D&amp;B box.</div>`}
   </div>`;
   // --- Obsidian folder files ---
-  html += `<div style="font-size:10px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">OBSIDIAN FOLDER${scan.folderName?` — ${esc(scan.folderName.toUpperCase())}`:""}${scan.lastScan?` · UPDATED ${fmtTs(scan.lastScan).toUpperCase()}`:""}</div>`;
-  if (!scan.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No folder connected yet. Click <b>◇ CONNECT OBSIDIAN FOLDER</b> (Chrome/Edge/Brave), then <b>⟳ UPDATE</b> pulls the file list — and re-pulls it any time.</div>`;
+  html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">📁 OBSIDIAN FOLDER${scan.folderName?` — ${esc(scan.folderName.toUpperCase())}`:""}${scan.lastScan?` · UPDATED ${fmtTs(scan.lastScan).toUpperCase()}`:""}</div>`;
+  if (!scan.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No folder connected yet. Click <b>📂 CONNECT OBSIDIAN FOLDER</b> (Chrome/Edge/Brave), then <b>🔄 UPDATE</b> pulls the file list — and re-pulls it any time.</div>`;
   else html += `<div class="col" style="margin-bottom:12px">`+scan.files.map((f,i)=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center;cursor:pointer" onclick="openScanFile('${biz}',${i})" title="Click to open">
       <span>${fileIcon(f.name)}</span>
-      <span style="flex:1;min-width:0;font-size:12px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
-      <span style="font-size:10px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.mtime)}</span>
+      <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
+      <span style="font-size:12px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.mtime)}</span>
     </div>`).join("")+`</div>`;
   // --- Saved files & screenshots ---
-  html += `<div style="font-size:10px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">SAVED FILES &amp; SCREENSHOTS</div>`;
+  html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">💾 SAVED FILES &amp; SCREENSHOTS</div>`;
   if (!D.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">Nothing saved yet — use <b>+ FILES</b> or paste a screenshot.</div>`;
   else html += `<div class="col" style="margin-bottom:12px">`+D.files.map(f=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
       ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
-      <span style="flex:1;min-width:0;font-size:12px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#475569;font-size:10px">(reference only — too big to store)</span>`:""}</span>
-      <span style="font-size:10px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
+      <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#475569;font-size:12px">(reference only — too big to store)</span>`:""}</span>
+      <span style="font-size:12px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
       <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
     </div>`).join("")+`</div>`;
   // --- General links ---
-  html += `<div style="font-size:10px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">LINKS</div>`;
+  html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">🔗 LINKS</div>`;
   if (!D.links.length) html += `<div class="empty" style="padding:18px">No links yet — use <b>+ LINK</b>.</div>`;
   else html += `<div class="col">`+D.links.map(l=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
       <span>🔗</span>
-      <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:12px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
+      <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:14px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
       <button class="del-x" onclick="delDocLink('${biz}','links','${l.id}')">×</button>
     </div>`).join("")+`</div>`;
   return html;
