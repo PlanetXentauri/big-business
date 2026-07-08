@@ -151,7 +151,8 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
   <input type="file" id="logoFile" accept="image/*" style="display:none">
   <input type="file" id="catFile" accept=".json,application/json" style="display:none">
   <input type="file" id="docFile" multiple style="display:none">
-  <input type="file" id="afFile" accept="image/*,.pdf,application/pdf" style="display:none">
+  <input type="file" id="afImg" accept="image/*" style="display:none">
+  <input type="file" id="afPdf" accept="application/pdf,.pdf" style="display:none">
   <div class="biz-tabs" id="bizTabs"></div>
   <div class="sub-tabs" id="subTabs"></div>
   <div id="content"></div>
@@ -1175,7 +1176,7 @@ function loadScript(src){
 const TESS_URL = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
 const PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-function pickAutofill(biz){ const i=document.getElementById("afFile"); i.dataset.biz=biz; i.click(); }
+function pickAutofill(biz, which){ const i=document.getElementById(which||"afImg"); i.dataset.biz=biz; i.click(); }
 async function runAutofill(file, biz){
   try {
     ui.afResults = null;
@@ -1223,7 +1224,10 @@ function rProfile(biz) {
   let html = `<div class="section-title">👤 BUSINESS PROFILE — ${BIZ[biz].name}</div>`;
   if (biz==="keypr") html += `<div style="width:290px;margin:0 auto 14px">${keyprLogoSVG()}</div>`;
   if (biz==="centauri") html += `<div style="width:290px;margin:0 auto 14px">${centauriLogoSVG()}</div>`;
-  html += `<button class="btn btn-red" style="width:100%;margin-bottom:8px" onclick="pickAutofill('${biz}')">⚡ AUTOFILL FROM SCREENSHOT / PDF</button>
+  html += `<div class="row" style="margin-bottom:8px">
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf')">⚡ AUTOFILL FROM PDF 📄</button>
+  </div>
   <div style="font-size:12px;color:#334155;margin-bottom:12px;text-align:center">OCR runs locally in your browser — the file is never uploaded. You review every value before it saves. 🔒 All profile data stays on this device.</div>`;
   if (ui.afStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
   if (ui.afResults && ui.afResults.biz===biz) {
@@ -1490,11 +1494,13 @@ document.addEventListener("paste", e=>{
 });
 
 // ---------- Autofill file picker ----------
-document.getElementById("afFile").addEventListener("change", e=>{
-  const f=e.target.files[0], biz=e.target.dataset.biz||_state.activeBiz;
-  e.target.value=""; if(!f) return;
-  runAutofill(f, biz);
-});
+for (const id of ["afImg","afPdf"]) {
+  document.getElementById(id).addEventListener("change", e=>{
+    const f=e.target.files[0], biz=e.target.dataset.biz||_state.activeBiz;
+    e.target.value=""; if(!f) return;
+    runAutofill(f, biz);
+  });
+}
 
 // ---------- Background image (corner control) ----------
 document.getElementById("bgFile").addEventListener("change", e=>{
