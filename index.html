@@ -131,6 +131,8 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
   margin-bottom: 12px;
 }
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+#bgCorner { position: fixed; right: 14px; bottom: 12px; z-index: 50; display: flex; gap: 6px; opacity: 0.4; transition: opacity .2s; }
+#bgCorner:hover { opacity: 1; }
 </style>
 </head>
 <body>
@@ -157,8 +159,10 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
     <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px" onclick="document.getElementById('dataFile').click()">⬆ IMPORT DATA</button>
   </div>
   <input type="file" id="dataFile" accept=".json,application/json" style="display:none">
+  <input type="file" id="bgFile" accept="image/*" style="display:none">
   <div style="margin-top:14px;text-align:center;font-size:10px;letter-spacing:0.2em;color:#1e293b;" id="footer"></div>
 </div>
+<div id="bgCorner"></div>
 
 <script>
 // ==================================================
@@ -390,7 +394,12 @@ function renderLogos() {
     wm.style.opacity = "0.05";
     wm.innerHTML = `<div class="logo-wrap" style="width:min(520px,85vw)">${logoHTML()}</div>`;
   }
+  document.getElementById("bgCorner").innerHTML = _state.bg
+    ? `<button class="btn btn-ghost" style="font-size:9px;padding:4px 9px" title="Change background image" onclick="document.getElementById('bgFile').click()">⛰</button>
+       <button class="btn btn-ghost" style="font-size:9px;padding:4px 9px" title="Remove background image" onclick="clearBg()">✕</button>`
+    : `<button class="btn btn-ghost" style="font-size:9px;padding:4px 9px" title="Set background image" onclick="document.getElementById('bgFile').click()">⛰ BG</button>`;
 }
+function clearBg(){ _state.bg = null; commit(); }
 function renderBizTabs() {
   const s = _state;
   document.getElementById("bizTabs").innerHTML = Object.entries(BIZ).map(([id,b]) => {
@@ -1164,6 +1173,14 @@ document.addEventListener("paste", e=>{
   if (_state.activeTab!=="profile") return;
   const imgs=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith("image/"));
   if (imgs.length) { e.preventDefault(); addDocFiles(imgs, _state.activeBiz); }
+});
+
+// ---------- Background image (corner control) ----------
+document.getElementById("bgFile").addEventListener("change", e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ _state.bg=r.result; try{ commit(); }catch(err){ alert("That image is too large to store — try one under ~3 MB."); _state.bg=null; render(); } };
+  r.readAsDataURL(f);
 });
 
 // ---------- Data backup: move your data between devices ----------
