@@ -355,7 +355,9 @@ function migrate() { // add keys introduced after first release
   _state.catalogMeta ||= {};
   _state.docs ||= {};
   _state.bp ||= {};
+  _state.fin ||= {};
   for (const b of ["centauri","keypr"]) {
+    _state.fin[b] ||= {};
     _state.catalog[b] ||= [];
     _state.catalogMeta[b] ||= { lastSync: null, source: "", srcUrl: "" };
     _state.docs[b] ||= { files: [], links: [], dnb: defaultDnb(), scan: { files: [], lastScan: null, folderName: "" } };
@@ -740,34 +742,59 @@ function delProd(biz,id){ if(!confirm("Delete this product?"))return; _state.cat
 
 // ========== FINANCIALS ==========
 function rFinancials(biz) {
-  const rows=_state.financials[biz]||[];
-  let html = `<div class="section-title">💰 FINANCIAL SNAPSHOT — ${BIZ[biz].name}</div>`;
-  if (ui.showForm.fin) {
-    html += `<div class="form-panel">
-      <input id="fin-label" placeholder="Metric (e.g. UNI5 monthly revenue)">
-      <div class="grid2"><input id="fin-value" placeholder="Value (e.g. $9,085)"><input id="fin-note" placeholder="Note (optional)"></div>
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addFin('${biz}')">💾 SAVE METRIC</button>
-      <button class="btn btn-ghost" onclick="ui.showForm.fin=false;render()">CANCEL</button></div></div>`;
-  } else {
-    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.fin=true;render()">➕ ADD METRIC</button>`;
+  const fin = _state.fin[biz];
+  let html = `<div class="section-title">🏦 BANKING &amp; CREDIT — ${BIZ[biz].name}</div>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg','fin')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf','fin')">⚡ AUTOFILL FROM PDF 📄</button>
+  </div>
+  <div style="font-size:12px;color:#334155;margin-bottom:12px;text-align:center">Feed it a bank statement, card statement, or credit report — it reads locally in your browser and you review before anything saves. 🔒 Stays on this device.</div>`;
+  if (ui.afStatus && _state.activeTab==="financials") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += afPanelHTML(biz, "fin");
+  for (const [gid, title, fields] of FIN_GROUPS) {
+    const filled = fields.filter(([k])=>fin[k]).length;
+    const editing = ui.editGroup === "fin-"+gid;
+    html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled?`border-left:3px solid ${BIZ[biz].accent};`:""}">
+      <div style="display:flex;align-items:center;gap:8px;${editing||filled?"margin-bottom:10px;":""}">
+        <div style="font-size:12px;letter-spacing:0.22em;color:var(--accent);font-weight:700">${title}</div>
+        <span class="chip" style="background:rgba(255,255,255,0.05);color:${filled===fields.length?"var(--green)":"var(--muted)"};border:1px solid rgba(255,255,255,0.1)">${filled}/${fields.length}</span>
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'fin-${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
+      </div>`;
+    if (editing) {
+      html += `<div class="col">` + fields.map(([k,label])=>`
+        <div><div style="font-size:12px;color:var(--muted);letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
+        <input id="fin-${k}" value="${esc(fin[k]||"")}"></div>`).join("") + `
+        <button class="btn btn-red" onclick="saveFinGroup('${biz}','${gid}')">💾 SAVE ${title}</button>
+      </div>`;
+    } else if (filled) {
+      html += fields.filter(([k])=>fin[k]).map(([k,label])=>`
+        <div style="margin-bottom:9px">
+          <div style="font-size:12px;color:var(--faint);letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
+          <div style="font-size:15px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${esc(fin[k])}</div>
+        </div>`).join("");
+    }
+    html += `</div>`;
   }
-  if (!rows.length) html += `<div class="empty">No financial entries yet. Add revenue, margins, or SKU numbers you want to track.</div>`;
-  html += `<div class="col">` + rows.map(r=>`
-    <div class="card" style="padding:14px 16px;display:flex;align-items:center;gap:14px;">
-      <div style="flex:1;min-width:0">
-        <div style="font-size:13px;color:var(--muted);letter-spacing:0.08em;margin-bottom:3px">${esc(r.label)}</div>
-        <div class="syne" style="font-size:24px;font-weight:800;color:${BIZ[biz].accent}">${esc(r.value)}</div>
-        ${r.note?`<div style="font-size:13px;color:#475569;margin-top:3px">${esc(r.note)}</div>`:''}
-      </div>
-      <button class="del-x" onclick="delFin('${biz}','${r.id}')">×</button>
-    </div>`).join("") + `</div>`;
+  // legacy metrics (from the old Financial Snapshot) — kept until you delete them
+  const rows = _state.financials[biz]||[];
+  if (rows.length){
+    html += docSecHdr("oldfin", "🗃 OLD METRICS (LEGACY)", rows.length, !!ui.docOpen.oldfin);
+    if (ui.docOpen.oldfin) html += `<div class="col">` + rows.map(r=>`
+      <div class="card" style="padding:14px 16px;display:flex;align-items:center;gap:14px;">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--muted);letter-spacing:0.08em;margin-bottom:3px">${esc(r.label)}</div>
+          <div class="syne" style="font-size:24px;font-weight:800;color:${BIZ[biz].accent}">${esc(r.value)}</div>
+          ${r.note?`<div style="font-size:13px;color:#475569;margin-top:3px">${esc(r.note)}</div>`:''}
+        </div>
+        <button class="del-x" onclick="delFin('${biz}','${r.id}')">×</button>
+      </div>`).join("") + `</div>`;
+  }
   return html;
 }
-function addFin(biz){
-  const l=document.getElementById("fin-label").value.trim(); if(!l) return;
-  (_state.financials[biz]=_state.financials[biz]||[]).push({ id:uid("fin"), label:l,
-    value:document.getElementById("fin-value").value.trim()||"—", note:document.getElementById("fin-note").value.trim() });
-  ui.showForm.fin=false; commit();
+function saveFinGroup(biz, gid){
+  const fields = FIN_GROUPS.find(([g])=>g===gid)[2];
+  fields.forEach(([k])=>{ _state.fin[biz][k] = document.getElementById("fin-"+k).value.trim(); });
+  ui.editGroup = null; commit();
 }
 function delFin(biz,id){ _state.financials[biz]=_state.financials[biz].filter(r=>r.id!==id); commit(); }
 
@@ -1176,7 +1203,7 @@ function loadScript(src){
 const TESS_URL = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
 const PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
-function pickAutofill(biz, which){ const i=document.getElementById(which||"afImg"); i.dataset.biz=biz; i.click(); }
+function pickAutofill(biz, which, mode){ const i=document.getElementById(which||"afImg"); i.dataset.biz=biz; i.dataset.mode=mode||"bp"; i.click(); }
 function saveAutofillFile(file, biz){
   const ext = (file.name && file.name.includes(".")) ? file.name.split(".").pop().toLowerCase()
     : (file.type==="application/pdf" ? "pdf" : (file.type.split("/")[1]||"png"));
@@ -1190,7 +1217,8 @@ function saveAutofillFile(file, biz){
     try{ save(); }catch(e){ entry.dataUri=null; entry.ref=true; try{save();}catch(e2){} } };
   r.readAsDataURL(file);
 }
-async function runAutofill(file, biz){
+async function runAutofill(file, biz, mode){
+  mode = mode || "bp";
   try {
     ui.afResults = null;
     saveAutofillFile(file, biz); // every autofill upload is auto-named + kept in Business Documents
@@ -1217,24 +1245,128 @@ async function runAutofill(file, biz){
       const res = await Tesseract.recognize(file, "eng");
       text = res.data.text || "";
     }
-    const items = parseAutofill(text);
+    const items = (mode==="fin" ? parseFin(text) : parseAutofill(text));
     if (!items.length){ ui.afStatus = "Couldn't confidently match any fields — try a clearer screenshot or a text PDF."; render(); return; }
     ui.afStatus = null;
-    ui.afResults = { biz, items };
+    ui.afResults = { biz, items, mode };
     render();
   } catch(e){ ui.afStatus = "Autofill failed: " + e.message; render(); }
 }
 function applyAutofill(){
-  const { biz, items } = ui.afResults;
+  const { biz, items, mode } = ui.afResults;
+  const store = (mode==="fin") ? _state.fin[biz] : _state.bp[biz];
   let n = 0;
   items.forEach((it,i)=>{
     if (!document.getElementById("af-c-"+i).checked) return;
     const v = document.getElementById("af-v-"+i).value.trim();
-    if (v){ _state.bp[biz][it.k] = v; n++; }
+    if (v){ store[it.k] = v; n++; }
   });
   ui.afResults = null;
   ui.afStatus = "✓ Filled " + n + " field(s).";
   commit();
+}
+function afPanelHTML(biz, mode){
+  if (!ui.afResults || ui.afResults.biz!==biz || (ui.afResults.mode||"bp")!==mode) return "";
+  const store = (mode==="fin") ? _state.fin[biz] : _state.bp[biz];
+  return `<div class="form-panel">
+    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">REVIEW AUTOFILL — ${ui.afResults.items.length} MATCH(ES). UNCHECK ANYTHING WRONG.</div>` +
+    ui.afResults.items.map((it,i)=>`
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" id="af-c-${i}" ${store[it.k]?"":"checked"} style="width:auto;flex-shrink:0">
+      <div style="width:170px;flex-shrink:0;font-size:12px;color:var(--muted)">${it.label}${store[it.k]?` <span style="color:var(--amber)">(overwrites)</span>`:""}</div>
+      <input id="af-v-${i}" value="${esc(it.value)}" style="flex:1">
+    </div>`).join("") + `
+    <div class="row"><button class="btn btn-red" style="flex:1" onclick="applyAutofill()">✅ APPLY CHECKED</button>
+    <button class="btn btn-ghost" onclick="ui.afResults=null;render()">DISMISS</button></div></div>`;
+}
+// ===== BANKING & CREDIT (Financials tab) =====
+const FIN_GROUPS = [
+  ["bankacct","🏦 BANKING",[
+    ["bankName","Bank name"],
+    ["acctType","Account type (checking / savings)"],
+    ["acctNumber","Account number"],
+    ["routingNumber","Routing number"],
+    ["bankContact","Banker / branch contact"],
+    ["bankOnline","Online banking URL"],
+    ["secondaryBank","Secondary bank & account"],
+  ]],
+  ["cards","💳 CREDIT CARDS",[
+    ["card1","Card 1 (issuer · last 4 · limit)"],
+    ["card2","Card 2 (issuer · last 4 · limit)"],
+    ["card3","Card 3 (issuer · last 4 · limit)"],
+    ["cardDue","Payment due dates"],
+    ["cardApr","APR / terms"],
+  ]],
+  ["bizcredit","📈 BUSINESS CREDIT",[
+    ["paydex","D&B PAYDEX score"],
+    ["intelliscore","Experian Intelliscore"],
+    ["equifax","Equifax Business score"],
+    ["fico","FICO SBSS"],
+    ["tradelines","Net-30 / tradeline accounts"],
+    ["creditLimitTotal","Total credit available"],
+    ["creditNotes","Credit building notes"],
+  ]],
+];
+const FIN_BANKS = /\b(chase|bank of america|wells fargo|truist|pnc|citibank|citizens|capital one|td bank|regions|us bank|fifth third|huntington|navy federal|chime|novo|bluevine|mercury|relay|axos|live oak|amex|american express)\b/i;
+function parseFin(text){
+  const lines = text.split(/\r?\n/).map(l=>l.replace(/[|•·]+/g," ").replace(/\s+/g," ").trim()).filter(l=>l.length>1);
+  const best = {};
+  const put=(k,v,score)=>{ v=(v||"").replace(/^[\s:#.,\-–—]+/,"").replace(/[\s;,]+$/,"").trim();
+    if(v.length<1) return; if(!best[k]||score>best[k].score) best[k]={v:v.slice(0,220),score}; };
+  const kwPass = [
+    ["bankName",["bank name","financial institution","banking with","depository"]],
+    ["acctNumber",["account number","account no","acct number","acct #"]],
+    ["routingNumber",["routing number","routing no","aba number","aba routing"]],
+    ["bankContact",["banker","branch contact","account manager","relationship manager"]],
+    ["bankOnline",["online banking","login url","banking url"]],
+    ["cardDue",["payment due","due date","statement date"]],
+    ["cardApr",["apr","interest rate","purchase rate"]],
+    ["paydex",["paydex"]],
+    ["intelliscore",["intelliscore","experian score","experian business"]],
+    ["equifax",["equifax business","equifax score"]],
+    ["fico",["fico sbss","sbss"]],
+    ["tradelines",["net-30","net 30","tradeline","trade line","vendor account"]],
+    ["creditLimitTotal",["total credit","credit limit","credit line","available credit"]],
+  ];
+  for (let i=0;i<lines.length;i++){
+    const low = lines[i].toLowerCase();
+    for (const [k,kws] of kwPass){
+      for (const kw of kws){
+        const at = low.indexOf(kw);
+        if (at<0) continue;
+        if (at>0 && /[a-z0-9]/.test(low[at-1])) continue;
+        let rest = lines[i].slice(at+kw.length).replace(/^[\s:#.\-–—]*/,"").trim();
+        if (rest.length>=1) put(k, rest, 3);
+        else if (lines[i+1] && lines[i+1].length<=120) put(k, lines[i+1], 2);
+        break;
+      }
+    }
+  }
+  // pattern passes
+  for (const l of lines){
+    if (!best.routingNumber){ const m=l.match(/routing[^\d]{0,14}(\d{9})\b/i); if(m) put("routingNumber", m[1], 4); }
+    if (!best.acctNumber){ const m=l.match(/acc(?:oun)?t[^\d]{0,14}(\d{6,17})\b/i); if(m) put("acctNumber", m[1], 4); }
+    if (!best.acctType){ const m=l.match(/\b(business )?(checking|savings|money market)\b/i); if(m) put("acctType", m[0], 2); }
+    if (!best.bankName){ const m=l.match(FIN_BANKS); if(m) put("bankName", l.length<60 ? l : m[0], 2); }
+    if (!best.paydex){ const m=l.match(/paydex[^\d]{0,12}(\d{1,3})/i); if(m) put("paydex", m[1], 4); }
+    if (!best.intelliscore){ const m=l.match(/intelliscore[^\d]{0,12}(\d{1,3})/i); if(m) put("intelliscore", m[1], 4); }
+  }
+  // credit cards: collect up to three distinct mentions
+  const cardRx = /\b(visa|mastercard|master card|amex|american express|discover)\b[^\n]{0,40}?(?:ending(?: in)?|last 4|x{2,4}|\*{2,4})?[^\d]{0,6}(\d{4})\b/i;
+  const seen = new Set(); let slot = 1;
+  for (const l of lines){
+    if (slot>3) break;
+    const m = l.match(cardRx);
+    if (!m || seen.has(m[2])) continue;
+    seen.add(m[2]);
+    const lim = l.match(/\$[\d,]+/);
+    put("card"+slot, m[1].toUpperCase()+" ···"+m[2]+(lim?" · limit "+lim[0]:""), 3);
+    slot++;
+  }
+  const fields = FIN_GROUPS.flatMap(([g,t,fs])=>fs.map(([k,label])=>({k,label})));
+  const found = [];
+  for (const f of fields){ if (best[f.k]) found.push({ k:f.k, label:f.label, value:best[f.k].v }); }
+  return found;
 }
 function rProfile(biz) {
   const bp = _state.bp[biz];
@@ -1247,18 +1379,7 @@ function rProfile(biz) {
   </div>
   <div style="font-size:12px;color:#334155;margin-bottom:12px;text-align:center">OCR runs locally in your browser — the file is never uploaded. You review every value before it saves. 🔒 All profile data stays on this device.</div>`;
   if (ui.afStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
-  if (ui.afResults && ui.afResults.biz===biz) {
-    html += `<div class="form-panel">
-      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">REVIEW AUTOFILL — ${ui.afResults.items.length} MATCH(ES). UNCHECK ANYTHING WRONG.</div>` +
-      ui.afResults.items.map((it,i)=>`
-      <div style="display:flex;gap:8px;align-items:center">
-        <input type="checkbox" id="af-c-${i}" ${bp[it.k]?"":"checked"} style="width:auto;flex-shrink:0">
-        <div style="width:170px;flex-shrink:0;font-size:12px;color:var(--muted)">${it.label}${bp[it.k]?` <span style="color:var(--amber)">(overwrites)</span>`:""}</div>
-        <input id="af-v-${i}" value="${esc(it.value)}" style="flex:1">
-      </div>`).join("") + `
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="applyAutofill()">✅ APPLY CHECKED</button>
-      <button class="btn btn-ghost" onclick="ui.afResults=null;render()">DISMISS</button></div></div>`;
-  }
+  html += afPanelHTML(biz, "bp");
   html += rDocs(biz);
   for (const [gid, title, fields] of BP_GROUPS) {
     const filled = fields.filter(([k])=>bp[k]).length;
@@ -1541,9 +1662,9 @@ document.addEventListener("paste", e=>{
 // ---------- Autofill file picker ----------
 for (const id of ["afImg","afPdf"]) {
   document.getElementById(id).addEventListener("change", e=>{
-    const f=e.target.files[0], biz=e.target.dataset.biz||_state.activeBiz;
+    const f=e.target.files[0], biz=e.target.dataset.biz||_state.activeBiz, mode=e.target.dataset.mode||"bp";
     e.target.value=""; if(!f) return;
-    runAutofill(f, biz);
+    runAutofill(f, biz, mode);
   });
 }
 
