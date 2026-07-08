@@ -18,8 +18,8 @@
   --bg: #0a0a0d;
   --panel: rgba(255,255,255,0.025);
   --border: rgba(255,255,255,0.08);
-  --gold: #d9a844;
-  --gold-dim: rgba(217,168,68,0.12);
+  --gold: #E8B64C;
+  --gold-dim: rgba(232,182,76,0.12);
   --text: #e2e8f0;
   --muted: #9aa7bd;
   --faint: #9aa8c2;
@@ -28,9 +28,9 @@
   --blue: #3b82f6;
   --purple: #8b5cf6;
   --cyan: #1fd3ee;
-  --accent: #d9a844;          /* switches per business in render() */
-  --accent-dim: rgba(217,168,68,0.12);
-  --accent-brd: rgba(217,168,68,0.35);
+  --accent: #E8B64C;          /* switches per business in render() */
+  --accent-dim: rgba(232,182,76,0.12);
+  --accent-brd: rgba(232,182,76,0.35);
 }
 body {
   background: var(--bg);
@@ -105,7 +105,7 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 .biz-tab {
   padding: 13px 10px; border-radius: 10px; cursor: pointer; text-align: center;
   border: 1px solid var(--border); background: var(--panel);
-  font-size: 14px; letter-spacing: 0.12em; color: var(--muted); font-weight: 600;
+  font-size: 14px; letter-spacing: 0.12em; color: var(--muted); font-weight: 800;
   transition: all .2s;
 }
 .biz-tab.active { color: #fff; }
@@ -143,9 +143,9 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
   <header class="app">
     <div class="logo-wrap" id="headerLogo" title="Click to upload your logo PNG"></div>
     <div style="display:flex;align-items:center;gap:12px;">
-      <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(217,168,68,0.45))"></div>
-      <div style="font-size:12px;letter-spacing:0.34em;color:var(--gold);">MASTER BUSINESS DASHBOARD</div>
-      <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(217,168,68,0.45),transparent)"></div>
+      <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(232,182,76,0.45))"></div>
+      <div style="font-size:12px;letter-spacing:0.34em;color:var(--gold);font-weight:800;">MASTER BUSINESS DASHBOARD</div>
+      <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(232,182,76,0.45),transparent)"></div>
     </div>
   </header>
   <input type="file" id="logoFile" accept="image/*" style="display:none">
@@ -178,27 +178,12 @@ const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt
 // ---------- Default logo (SVG recreation of "BIG BUSINESS" gold wordmark) ----------
 let _logoN = 0;
 function logoSVG() {
-  const g = "gg" + (_logoN++); // unique gradient ids per instance
   return `
   <svg viewBox="0 0 970 190" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
-    <defs>
-      <linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#fdf0b0"/>
-        <stop offset="30%" stop-color="#e9c561"/>
-        <stop offset="52%" stop-color="#a5761f"/>
-        <stop offset="66%" stop-color="#e3b64e"/>
-        <stop offset="85%" stop-color="#c1922f"/>
-        <stop offset="100%" stop-color="#6e4f14"/>
-      </linearGradient>
-      <linearGradient id="${g}e" x1="0" y1="0" x2="0" y2="1">
-        <stop offset="0%" stop-color="#fff6cf"/>
-        <stop offset="100%" stop-color="#3c2a08"/>
-      </linearGradient>
-    </defs>
     <text x="485" y="132" text-anchor="middle"
-      font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="700"
+      font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="900"
       font-size="118" letter-spacing="4"
-      fill="url(#${g})" stroke="url(#${g}e)" stroke-width="1.6">BIG BUSINESS</text>
+      fill="#E8B64C">BIG BUSINESS</text>
   </svg>`;
 }
 function logoHTML() {
@@ -209,7 +194,7 @@ function logoHTML() {
 
 // ---------- Businesses ----------
 const BIZ = {
-  centauri: { name: "🌐 CENTAURI WORLD LLC", short: "Centauri", accent: "#C4993A" },
+  centauri: { name: "🌐 CENTAURI WORLD LLC", short: "Centauri", accent: "#E8B64C" },
   keypr:    { name: "🔑 KEYPR ON COMPANY",  short: "Keypr",    accent: "#1fd3ee" },
 };
 const TABS = [
@@ -283,7 +268,7 @@ function defaultState() {
         subtitle:"Logo · Typography · Color System · Assets", status:"nearly-done",
         steps:[
           {id:1,status:"done",label:"Brand Direction Set",detail:"Custom dot-sphere globe logo chosen",sub:"Rejected: Crux, Meridian, Binary Orbit concepts"},
-          {id:2,status:"done",label:"Color Palette Finalized",detail:"Deep Space · Electric Blue · Stellar Silver · Centauri Gold",sub:"#070B16 · #1A6AE8 · #8A9AB5 · #C4993A"},
+          {id:2,status:"done",label:"Color Palette Finalized",detail:"Deep Space · Electric Blue · Stellar Silver · Centauri Gold",sub:"#070B16 · #1A6AE8 · #8A9AB5 · #E8B64C"},
           {id:3,status:"done",label:"Typography System",detail:"Outfit Bold (CENTAURI) + Outfit Light (WORLD)",sub:"Body: DM Sans"},
           {id:4,status:"done",label:"14 SVG Files Produced",detail:"Primary, monochrome, icon, stacked, wordmark",sub:"Full production-ready asset suite"},
           {id:5,status:"upcoming",label:"Apply to Walmart Listings",detail:"Use brand assets in product imagery",sub:"Seller Center listing images & storefront"},
@@ -305,7 +290,7 @@ function defaultState() {
         legal: "Centauri World LLC", brands: "Centauri World",
         marketplaces: "Walmart Marketplace (Seller Center)",
         ids: "UNI2: 3406107934 · UNI5: 591166907",
-        colors: "#070B16 Deep Space · #1A6AE8 Electric Blue · #8A9AB5 Stellar Silver · #C4993A Centauri Gold",
+        colors: "#070B16 Deep Space · #1A6AE8 Electric Blue · #8A9AB5 Stellar Silver · #E8B64C Centauri Gold",
         notes: "Typography: Outfit Bold/Light + DM Sans. 14 production SVG assets ready.",
       },
       keypr: {
@@ -461,7 +446,7 @@ function rProjects(biz) {
     <div class="stat"><div class="lbl">⏳ WAITING ON</div><div class="val" style="color:var(--amber)">${st.waiting}</div></div>
   </div>
   <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-bottom:14px;">
-    <div style="height:100%;width:${st.pct}%;background:linear-gradient(90deg,${BIZ[biz].accent},var(--green));transition:width 1s ease"></div>
+    <div style="height:100%;width:${st.pct}%;background:${BIZ[biz].accent};transition:width 1s ease"></div>
   </div>`;
   if (ui.showNewProject) {
     html += `<div class="form-panel">
@@ -1464,7 +1449,7 @@ function centauriLogoSVG() {
     <text x="230" y="46" text-anchor="middle" font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="700" font-size="36"
       textLength="436" lengthAdjust="spacingAndGlyphs" fill="#1A6AE8">CENTAURI WORLD</text>
     <text x="230" y="86" text-anchor="middle" font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="900" font-size="19"
-      textLength="100" lengthAdjust="spacingAndGlyphs" fill="#C4993A">LLC</text>
+      textLength="100" lengthAdjust="spacingAndGlyphs" fill="#E8B64C">LLC</text>
   </svg>`;
 }
 function docSecHdr(id, title, count, open){
