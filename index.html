@@ -1599,6 +1599,7 @@ function rDocs(biz) {
       ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
       <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#8794ab;font-size:12px">(reference only — too big to store)</span>`:""}</span>
       <span style="font-size:12px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
+      <button class="del-x" title="Rename" onclick="renameDocFile('${biz}','${f.id}')">✎</button>
       <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
     </div>`).join("")+`</div>`;
   }
@@ -1609,6 +1610,7 @@ function rDocs(biz) {
       ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
       <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#8794ab;font-size:12px">(reference only — too big to store)</span>`:""}</span>
       <span style="font-size:12px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
+      <button class="del-x" title="Rename" onclick="renameDocFile('${biz}','${f.id}')">✎</button>
       <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
     </div>`).join("")+`</div>`;
   // --- General links ---
@@ -1688,6 +1690,11 @@ function finishDocAdd(biz,n){
   try { save(); ui.docStatus="✓ Saved "+n+" file(s)."; }
   catch(e){ ui.docStatus="Storage is full — file kept as reference only. Delete some saved files to free space."; }
   render();
+}
+function renameDocFile(biz,id){
+  const f=_state.docs[biz].files.find(x=>x.id===id); if(!f) return;
+  const n=prompt("Rename file:", f.name);
+  if(n && n.trim()){ f.name=n.trim(); commit(); }
 }
 function delDocFile(biz,id){ _state.docs[biz].files=_state.docs[biz].files.filter(f=>f.id!==id); commit(); }
 function openSavedDoc(biz,id){
