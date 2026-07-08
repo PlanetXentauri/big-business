@@ -1177,9 +1177,23 @@ const TESS_URL = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tess
 const PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
 const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 function pickAutofill(biz, which){ const i=document.getElementById(which||"afImg"); i.dataset.biz=biz; i.click(); }
+function saveAutofillFile(file, biz){
+  const ext = (file.name && file.name.includes(".")) ? file.name.split(".").pop().toLowerCase()
+    : (file.type==="application/pdf" ? "pdf" : (file.type.split("/")[1]||"png"));
+  const d = new Date(), p = n=>String(n).padStart(2,"0");
+  const stamp = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+  const entry = { id:uid("doc"), name:"autofill-"+stamp+"."+ext, type:file.type||"", size:file.size,
+    ts:Date.now(), dataUri:null, ref:false, af:true };
+  if (file.size > 3*1048576){ entry.ref = true; _state.docs[biz].files.unshift(entry); try{save();}catch(e){} return; }
+  const r = new FileReader();
+  r.onload = ()=>{ entry.dataUri = r.result; _state.docs[biz].files.unshift(entry);
+    try{ save(); }catch(e){ entry.dataUri=null; entry.ref=true; try{save();}catch(e2){} } };
+  r.readAsDataURL(file);
+}
 async function runAutofill(file, biz){
   try {
     ui.afResults = null;
+    saveAutofillFile(file, biz); // every autofill upload is auto-named + kept in Business Documents
     let text = "";
     if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)){
       ui.afStatus = "Extracting text from PDF…"; render();
@@ -1370,9 +1384,20 @@ function rDocs(biz) {
       <span style="font-size:12px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.mtime)}</span>
     </div>`).join("")+`</div>`;
   // --- Saved files & screenshots ---
+  const afF = D.files.filter(f=>f.af), otherF = D.files.filter(f=>!f.af);
+  if (afF.length){
+    html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">🪄 AUTOFILL UPLOADS</div>
+    <div class="col" style="margin-bottom:12px">`+afF.map(f=>`
+    <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
+      ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
+      <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#475569;font-size:12px">(reference only — too big to store)</span>`:""}</span>
+      <span style="font-size:12px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
+      <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
+    </div>`).join("")+`</div>`;
+  }
   html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">💾 SAVED FILES &amp; SCREENSHOTS</div>`;
-  if (!D.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">Nothing saved yet — use <b>+ FILES</b> or paste a screenshot.</div>`;
-  else html += `<div class="col" style="margin-bottom:12px">`+D.files.map(f=>`
+  if (!otherF.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">Nothing saved yet — use <b>+ FILES</b> or paste a screenshot.</div>`;
+  else html += `<div class="col" style="margin-bottom:12px">`+otherF.map(f=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
       ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
       <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#475569;font-size:12px">(reference only — too big to store)</span>`:""}</span>
