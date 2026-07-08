@@ -1208,6 +1208,9 @@ document.getElementById("dataFile").addEventListener("change", e=>{
 
 // ---------- Boot ----------
 load();
+// always open on Centauri World LLC → Profile
+_state.activeBiz = "centauri";
+_state.activeTab = "profile";
 render();
 setTimeout(()=>{ const sp=document.getElementById("splash"); if(sp) sp.remove(); }, 2400);
 // PWA: register service worker when served over https (skipped for local file use)
