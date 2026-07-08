@@ -747,14 +747,14 @@ function rFinancials(biz) {
       </div>`;
     if (editing) {
       html += `<div class="col">` + fields.map(([k,label])=>`
-        <div><div style="font-size:12px;color:var(--muted);letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
+        <div><div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
         <input id="fin-${k}" value="${esc(fin[k]||"")}"></div>`).join("") + `
         <button class="btn btn-red" onclick="saveFinGroup('${biz}','${gid}')">💾 SAVE ${title}</button>
       </div>`;
     } else if (filled) {
       html += fields.filter(([k])=>fin[k]).map(([k,label])=>`
         <div style="margin-bottom:9px">
-          <div style="font-size:12px;color:var(--faint);letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
+          <div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
           <div style="font-size:15px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${esc(fin[k])}</div>
         </div>`).join("");
     }
@@ -1377,14 +1377,14 @@ function rProfile(biz) {
       </div>`;
     if (editing) {
       html += `<div class="col">` + fields.map(([k,label])=>`
-        <div><div style="font-size:12px;color:var(--muted);letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
+        <div><div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
         <input id="bp-${k}" value="${esc(bp[k]||"")}"></div>`).join("") + `
         <button class="btn btn-red" onclick="saveBpGroup('${biz}','${gid}')">💾 SAVE ${title}</button>
       </div>`;
     } else if (filled) {
       html += fields.filter(([k])=>bp[k]).map(([k,label])=>`
         <div style="margin-bottom:9px">
-          <div style="font-size:12px;color:var(--faint);letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
+          <div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
           <div style="font-size:15px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${esc(bp[k])}</div>
         </div>`).join("");
     }
