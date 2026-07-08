@@ -1,0 +1,1187 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big Business · Dashboard</title>
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0d;
+  --panel: rgba(255,255,255,0.025);
+  --border: rgba(255,255,255,0.08);
+  --gold: #d9a844;
+  --gold-dim: rgba(217,168,68,0.12);
+  --text: #e2e8f0;
+  --muted: #64748b;
+  --faint: #334155;
+  --green: #10b981;
+  --amber: #f59e0b;
+  --blue: #3b82f6;
+  --purple: #8b5cf6;
+  --cyan: #1fd3ee;
+  --accent: #d9a844;          /* switches per business in render() */
+  --accent-dim: rgba(217,168,68,0.12);
+  --accent-brd: rgba(217,168,68,0.35);
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+}
+h1,h2,h3,.syne { font-family: 'Syne', sans-serif; }
+button, input, select, textarea { font-family: inherit; }
+input, select, textarea {
+  width: 100%; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+  padding: 9px 12px; color: var(--text); font-size: 13px; outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+::placeholder { color: #475569; }
+.btn {
+  border: none; border-radius: 6px; padding: 9px 14px; font-size: 11px;
+  font-weight: 600; cursor: pointer; letter-spacing: 0.06em;
+  font-family: 'DM Mono', monospace;
+}
+.btn-red { background: var(--accent); color: #0d0d10; }
+.btn-ghost { background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); }
+.btn-dashed {
+  background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.14);
+  color: var(--muted); width: 100%; padding: 10px; border-radius: 8px;
+  cursor: pointer; font-size: 11px; letter-spacing: 0.08em;
+}
+.btn-dashed:hover { border-color: var(--accent); color: var(--accent); }
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden;
+}
+.chip {
+  font-size: 9px; letter-spacing: 0.18em; padding: 2px 7px; border-radius: 4px;
+  display: inline-block;
+}
+.section-title { font-size: 10px; letter-spacing: 0.3em; color: var(--muted); margin: 4px 0 12px; }
+.del-x {
+  background: transparent; border: none; color: #475569; font-size: 14px;
+  cursor: pointer; padding: 2px 6px; opacity: 0.55;
+}
+.del-x:hover { color: #ef4444; opacity: 1; }
+.empty {
+  padding: 30px 16px; text-align: center; color: var(--muted); font-size: 12px;
+  border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;
+}
+@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+@keyframes fadeout { to { opacity: 0; visibility: hidden; } }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+/* ===== Splash ===== */
+#splash {
+  position: fixed; inset: 0; background: #050506; z-index: 999;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeout 0.7s ease 1.5s forwards;
+}
+#splash .logo-wrap { width: min(560px, 86vw); }
+
+/* ===== Watermark ===== */
+#watermark {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 0; opacity: 0.05;
+}
+#watermark .logo-wrap { width: min(520px, 85vw); }
+
+/* ===== Layout ===== */
+#shell { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 26px 16px 60px; }
+header.app { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer; }
+.biz-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.biz-tab {
+  padding: 13px 10px; border-radius: 10px; cursor: pointer; text-align: center;
+  border: 1px solid var(--border); background: var(--panel);
+  font-size: 12px; letter-spacing: 0.12em; color: var(--muted); font-weight: 600;
+  transition: all .2s;
+}
+.biz-tab.active { color: #fff; }
+.sub-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.sub-tab {
+  padding: 7px 12px; border-radius: 999px; cursor: pointer; font-size: 10px;
+  letter-spacing: 0.1em; border: 1px solid var(--border);
+  background: transparent; color: var(--muted);
+}
+.sub-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+.stat {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 10px; text-align: center;
+}
+.stat .lbl { font-size: 10px; color: var(--faint); letter-spacing: 0.1em; margin-bottom: 6px; }
+.stat .val { font-family: 'DM Mono', monospace; font-size: 19px; font-weight: 500; }
+.row { display: flex; gap: 8px; }
+.col { display: flex; flex-direction: column; gap: 8px; }
+.form-panel {
+  background: var(--accent-dim); border: 1px solid var(--accent-brd);
+  border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 9px;
+  margin-bottom: 12px;
+}
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+</style>
+</head>
+<body>
+
+<div id="splash"><div class="logo-wrap"></div></div>
+<div id="watermark"><div class="logo-wrap"></div></div>
+<div id="shell">
+  <header class="app">
+    <div class="logo-wrap" id="headerLogo" title="Click to upload your logo PNG"></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(217,168,68,0.45))"></div>
+      <div style="font-size:10px;letter-spacing:0.34em;color:var(--gold);">MASTER BUSINESS DASHBOARD</div>
+      <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(217,168,68,0.45),transparent)"></div>
+    </div>
+  </header>
+  <input type="file" id="logoFile" accept="image/*" style="display:none">
+  <input type="file" id="catFile" accept=".json,application/json" style="display:none">
+  <input type="file" id="docFile" multiple style="display:none">
+  <div class="biz-tabs" id="bizTabs"></div>
+  <div class="sub-tabs" id="subTabs"></div>
+  <div id="content"></div>
+  <div style="margin-top:32px;display:flex;justify-content:center;gap:8px">
+    <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px" onclick="exportData()">⬇ EXPORT DATA</button>
+    <button class="btn btn-ghost" style="font-size:9px;padding:5px 10px" onclick="document.getElementById('dataFile').click()">⬆ IMPORT DATA</button>
+  </div>
+  <input type="file" id="dataFile" accept=".json,application/json" style="display:none">
+  <div style="margin-top:14px;text-align:center;font-size:10px;letter-spacing:0.2em;color:#1e293b;" id="footer"></div>
+</div>
+
+<script>
+// ==================================================
+// BIG BUSINESS — dual business dashboard
+// Centauri World LLC + Keypr On Company
+// All data lives in localStorage on this machine.
+// ==================================================
+const LS_KEY = "bigboss_dashboard_v1";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ---------- Default logo (SVG recreation of "BIG BUSINESS" gold wordmark) ----------
+let _logoN = 0;
+function logoSVG() {
+  const g = "gg" + (_logoN++); // unique gradient ids per instance
+  return `
+  <svg viewBox="0 0 970 190" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+    <defs>
+      <linearGradient id="${g}" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fdf0b0"/>
+        <stop offset="30%" stop-color="#e9c561"/>
+        <stop offset="52%" stop-color="#a5761f"/>
+        <stop offset="66%" stop-color="#e3b64e"/>
+        <stop offset="85%" stop-color="#c1922f"/>
+        <stop offset="100%" stop-color="#6e4f14"/>
+      </linearGradient>
+      <linearGradient id="${g}e" x1="0" y1="0" x2="0" y2="1">
+        <stop offset="0%" stop-color="#fff6cf"/>
+        <stop offset="100%" stop-color="#3c2a08"/>
+      </linearGradient>
+    </defs>
+    <text x="485" y="132" text-anchor="middle"
+      font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="700"
+      font-size="118" letter-spacing="4"
+      fill="url(#${g})" stroke="url(#${g}e)" stroke-width="1.6">BIG BUSINESS</text>
+  </svg>`;
+}
+function logoHTML() {
+  const s = state();
+  if (s && s.logo) return `<img src="${s.logo}" style="width:100%;display:block" alt="The Big Boss logo">`;
+  return logoSVG();
+}
+
+// ---------- Businesses ----------
+const BIZ = {
+  centauri: { name: "CENTAURI WORLD LLC", short: "Centauri", accent: "#C4993A" },
+  keypr:    { name: "KEYPR ON COMPANY",  short: "Keypr",    accent: "#1fd3ee" },
+};
+const TABS = [
+  ["projects","PROJECTS"],["catalog","PRODUCTS"],["financials","FINANCIALS"],["deadlines","DEADLINES"],
+  ["contacts","CONTACTS"],["notes","NOTES"],["profile","PROFILE"],
+];
+
+// ---------- Keypr On wordmark (logo colors: neon cyan + red) ----------
+function keyprLogoSVG() {
+  return `
+  <svg viewBox="0 0 460 68" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block" aria-label="Keypr On co.">
+    <text x="230" y="48" text-anchor="middle" font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="700" font-size="38"
+      textLength="420" lengthAdjust="spacingAndGlyphs"><tspan fill="#25d7f2">KEYPR ON </tspan><tspan fill="#ff8c2e">co.</tspan></text>
+  </svg>`;
+}
+const STATUS_META = {
+  "in-progress": { label: "IN PROGRESS", priority: "🔴 HIGH",  accent: "#3b82f6" },
+  "issue":       { label: "NEEDS ACTION", priority: "🟡 MEDIUM", accent: "#f59e0b" },
+  "nearly-done": { label: "NEARLY DONE", priority: "🟢 LOW",   accent: "#10b981" },
+  "new":         { label: "NEW PROJECT", priority: "⚪ TBD",    accent: "#8b5cf6" },
+};
+const STEP_COLORS = {
+  done:    { bg: "rgba(16,185,129,0.12)", border: "#10b981", text: "#10b981" },
+  waiting: { bg: "rgba(245,158,11,0.12)", border: "#f59e0b", text: "#f59e0b" },
+  upcoming:{ bg: "rgba(255,255,255,0.02)", border: "rgba(255,255,255,0.07)", text: "#475569" },
+};
+
+// ---------- Default data ----------
+function defaultState() {
+  return {
+    logo: null,
+    bg: null, // custom watermark background image (data URI)
+    activeBiz: "centauri",
+    activeTab: "projects",
+    openProject: "amazon",
+    projects: [
+      { id:"amazon", biz:"keypr", brand:"KEYPRONYX", title:"Amazon Compliance",
+        subtitle:"CR2032 Coin Cell Battery · Reese's Law", status:"in-progress",
+        steps:[
+          {id:1,status:"done",label:"Lab Identified",detail:"Intertek — Hillside, IL",sub:"Reese's Law accredited · 1-800-967-5352"},
+          {id:2,status:"done",label:"Contact Made",detail:"Info left with receptionist",sub:"Friday, April 24, 2026"},
+          {id:3,status:"waiting",label:"Awaiting Callback",detail:"Intertek engineer to call back",sub:"Expected by end of day Tuesday, April 29"},
+          {id:4,status:"upcoming",label:"Consultation Call",detail:"Get sample count, quote & schedule",sub:"Ask: How many samples for 16 CFR 1700?"},
+          {id:5,status:"upcoming",label:"Order Packaging Samples",detail:"Order exact qty confirmed by lab",sub:"Don't order until lab confirms count"},
+          {id:6,status:"upcoming",label:"Drop Off Samples",detail:"Drive to Hillside, IL",sub:"Mon–Fri 8AM–5PM"},
+          {id:7,status:"upcoming",label:"Receive Test Report",detail:"16 CFR 1700 certification issued",sub:"2–4 weeks after drop-off"},
+          {id:8,status:"upcoming",label:"Submit GCC to Amazon",detail:"GCC + lab report → Amazon",sub:"Listing reinstated after review"},
+        ]},
+      { id:"walmart-uni2", biz:"centauri", brand:"WALMART", title:"SKU UNI2 · POSCA Monotone",
+        subtitle:"Uni POSCA PC-5M 8-Count Monotone · ID: 3406107934", status:"issue",
+        steps:[
+          {id:1,status:"done",label:"Product Listed",detail:"Listed at $18.88",sub:"Net profit $11.53/unit · 61.1% margin"},
+          {id:2,status:"done",label:"Buy Box Tracked",detail:"Competitor: uni-ball Corp (1P) at $19.97",sub:"~71 units/mo demand"},
+          {id:3,status:"waiting",label:"Listing Quality Score",detail:"Current score: 61% — needs improvement",sub:"Improve title, images, content"},
+          {id:4,status:"upcoming",label:"Confirm Units On Hand",detail:"Verify inventory count in Seller Center",sub:"Update stock levels"},
+          {id:5,status:"upcoming",label:"Resolve Processing Issues",detail:"Check for stuck Processing status",sub:"Add price/inventory or retire & relist"},
+          {id:6,status:"upcoming",label:"Optimize Listing",detail:"Push Quality Score above 80%",sub:"Title, bullets, images, attributes"},
+        ]},
+      { id:"walmart-uni5", biz:"centauri", brand:"WALMART", title:"SKU UNI5 · POSCA Assorted",
+        subtitle:"Uni POSCA PC-5M 8-Count Assorted · ID: 591166907", status:"issue",
+        steps:[
+          {id:1,status:"done",label:"Product Listed",detail:"Listed at $19.88",sub:"~457 units/mo demand · 4.7★ (1,715 reviews)"},
+          {id:2,status:"done",label:"Competition Mapped",detail:"Walmart 1P at $19.97 · Lowest 3P: $16.97",sub:"Ocean State Office Supply undercutting"},
+          {id:3,status:"waiting",label:"Units On Hand = 0",detail:"Currently OUT OF STOCK",sub:"Restock needed immediately — high demand SKU"},
+          {id:4,status:"upcoming",label:"Resolve Processing Status",detail:"Listing may be stuck in Processing",sub:"Add inventory + price to activate"},
+          {id:5,status:"upcoming",label:"Reprice Strategically",detail:"Compete vs $16.97 floor",sub:"Stay above cost while undercutting 1P"},
+          {id:6,status:"upcoming",label:"Optimize Listing Quality",detail:"Current score: 62%",sub:"Push above 80% for Buy Box advantage"},
+        ]},
+      { id:"centauri-brand", biz:"centauri", brand:"BRAND", title:"Centauri World Brand Identity",
+        subtitle:"Logo · Typography · Color System · Assets", status:"nearly-done",
+        steps:[
+          {id:1,status:"done",label:"Brand Direction Set",detail:"Custom dot-sphere globe logo chosen",sub:"Rejected: Crux, Meridian, Binary Orbit concepts"},
+          {id:2,status:"done",label:"Color Palette Finalized",detail:"Deep Space · Electric Blue · Stellar Silver · Centauri Gold",sub:"#070B16 · #1A6AE8 · #8A9AB5 · #C4993A"},
+          {id:3,status:"done",label:"Typography System",detail:"Outfit Bold (CENTAURI) + Outfit Light (WORLD)",sub:"Body: DM Sans"},
+          {id:4,status:"done",label:"14 SVG Files Produced",detail:"Primary, monochrome, icon, stacked, wordmark",sub:"Full production-ready asset suite"},
+          {id:5,status:"upcoming",label:"Apply to Walmart Listings",detail:"Use brand assets in product imagery",sub:"Seller Center listing images & storefront"},
+          {id:6,status:"upcoming",label:"Apply to Amazon Listings",detail:"Brand registry + A+ content",sub:"Once compliance is resolved"},
+        ]},
+    ],
+    financials: {
+      centauri: [
+        {id:"f1", label:"UNI2 net profit / unit", value:"$11.53", note:"61.1% margin at $18.88"},
+        {id:"f2", label:"UNI5 demand", value:"~457 units/mo", note:"Currently out of stock"},
+        {id:"f3", label:"UNI2 demand", value:"~71 units/mo", note:"Buy Box vs uni-ball 1P $19.97"},
+      ],
+      keypr: [
+        {id:"f4", label:"Amazon listing status", value:"Suspended", note:"Pending Reese's Law compliance"},
+      ],
+    },
+    profiles: {
+      centauri: {
+        legal: "Centauri World LLC", brands: "Centauri World",
+        marketplaces: "Walmart Marketplace (Seller Center)",
+        ids: "UNI2: 3406107934 · UNI5: 591166907",
+        colors: "#070B16 Deep Space · #1A6AE8 Electric Blue · #8A9AB5 Stellar Silver · #C4993A Centauri Gold",
+        notes: "Typography: Outfit Bold/Light + DM Sans. 14 production SVG assets ready.",
+      },
+      keypr: {
+        legal: "Keypr On Company", brands: "KEYPRONYX",
+        marketplaces: "Amazon Seller Central",
+        ids: "CR2032 coin cell product line",
+        colors: "",
+        notes: "Compliance path: 16 CFR 1700 via Intertek (Hillside, IL) → GCC → Amazon reinstatement.",
+      },
+    },
+    deadlines: [
+      {id:"d1", biz:"keypr", title:"Intertek engineer callback", date:"2026-04-29", note:"Follow up if no call by EOD", done:true},
+    ],
+    contacts: [
+      {id:"c1", biz:"keypr", name:"Intertek — Hillside, IL", role:"Compliance Lab", phone:"1-800-967-5352", email:"", notes:"Reese's Law accredited. Spoke to receptionist 4/24."},
+    ],
+    links: [],
+    notes: [],
+    catalog: { centauri: [], keypr: [] },
+    catalogMeta: {
+      centauri: { lastSync: null, source: "", srcUrl: "" },
+      keypr:    { lastSync: null, source: "", srcUrl: "" },
+    },
+    docs: null, // filled by migrate()
+  };
+}
+function defaultDnb() {
+  return [
+    { id: uid("dnb"), label: "D&B Business Directory — company search", url: "https://www.dnb.com/business-directory.html" },
+    { id: uid("dnb"), label: "D-U-N-S Number lookup / request", url: "https://www.dnb.com/duns-number/lookup.html" },
+  ];
+}
+
+// ---------- State ----------
+let _state = null;
+function state() { return _state; }
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { _state = JSON.parse(raw); migrate(); return; }
+  } catch(e) {}
+  _state = defaultState();
+  migrate();
+}
+function migrate() { // add keys introduced after first release
+  _state.catalog ||= { centauri: [], keypr: [] };
+  _state.catalogMeta ||= {};
+  _state.docs ||= {};
+  for (const b of ["centauri","keypr"]) {
+    _state.catalog[b] ||= [];
+    _state.catalogMeta[b] ||= { lastSync: null, source: "", srcUrl: "" };
+    _state.docs[b] ||= { files: [], links: [], dnb: defaultDnb(), scan: { files: [], lastScan: null, folderName: "" } };
+  }
+}
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(_state)); } catch(e) { console.error(e); } }
+function commit() { save(); render(); }
+const uid = p => p + "-" + Date.now() + "-" + Math.floor(Math.random()*1000);
+
+// UI-only flags (not persisted)
+let ui = { showNewProject:false, addStepFor:null, showForm:{}, contactTab:"list", editProd:null, catStatus:"" };
+
+// ---------- Renderers ----------
+function render() {
+  // per-business accent: gold for Centauri, neon cyan for Keypr On
+  const a = BIZ[_state.activeBiz].accent;
+  const rt = document.documentElement.style;
+  rt.setProperty("--accent", a);
+  rt.setProperty("--accent-dim", a + "1f");
+  rt.setProperty("--accent-brd", a + "59");
+  renderLogos(); renderBizTabs(); renderSubTabs();
+  const s = _state;
+  const el = document.getElementById("content");
+  const fn = { projects: rProjects, catalog: rCatalog, financials: rFinancials, deadlines: rDeadlines,
+               contacts: rContacts, notes: rNotes, profile: rProfile }[s.activeTab] || rProjects;
+  el.innerHTML = fn(s.activeBiz);
+  document.getElementById("footer").textContent =
+    "CENTAURI WORLD LLC · KEYPR ON COMPANY · " +
+    new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase();
+}
+function renderLogos() {
+  document.querySelectorAll("header .logo-wrap, #splash .logo-wrap").forEach(w => w.innerHTML = logoHTML());
+  // watermark: custom photo background if set, otherwise the BIG BUSINESS wordmark
+  const wm = document.getElementById("watermark");
+  if (_state.bg) {
+    wm.style.opacity = "0.16";
+    wm.innerHTML = `<img src="${_state.bg}" style="width:100%;height:100%;object-fit:cover" alt="">`;
+  } else {
+    wm.style.opacity = "0.05";
+    wm.innerHTML = `<div class="logo-wrap" style="width:min(520px,85vw)">${logoHTML()}</div>`;
+  }
+}
+function renderBizTabs() {
+  const s = _state;
+  document.getElementById("bizTabs").innerHTML = Object.entries(BIZ).map(([id,b]) => {
+    const active = s.activeBiz === id;
+    const mark = "";
+    return `<div class="biz-tab ${active?'active':''}" onclick="setBiz('${id}')"
+      style="display:flex;align-items:center;justify-content:center;${active?`border-color:${b.accent};background:${b.accent}18;color:${b.accent};`:''}">${mark}<span>${b.name}</span></div>`;
+  }).join("");
+}
+function renderSubTabs() {
+  const s = _state;
+  document.getElementById("subTabs").innerHTML = TABS.map(([id,label]) =>
+    `<button class="sub-tab ${s.activeTab===id?'active':''}" onclick="setTab('${id}')">${label}</button>`
+  ).join("");
+}
+function setBiz(id){ _state.activeBiz = id; commit(); }
+function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; commit(); }
+
+// ========== PROJECTS ==========
+function projStats(biz) {
+  const ps = _state.projects.filter(p=>p.biz===biz);
+  const steps = ps.flatMap(p=>p.steps);
+  const done = steps.filter(x=>x.status==="done").length;
+  const waiting = steps.filter(x=>x.status==="waiting").length;
+  return { pct: steps.length?Math.round(done/steps.length*100):0, done, total: steps.length, waiting };
+}
+function ring(pct,color,size=48){
+  const r=(size-6)/2, c=2*Math.PI*r, o=c-(pct/100)*c;
+  return `<svg width="${size}" height="${size}" style="transform:rotate(-90deg);flex-shrink:0">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="3"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="3"
+      stroke-dasharray="${c}" stroke-dashoffset="${o}" style="stroke-linecap:round;transition:stroke-dashoffset 1s ease"/>
+    <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central"
+      style="transform:rotate(90deg);transform-origin:50% 50%;fill:${color};font-size:11px;font-weight:600">${pct}%</text>
+  </svg>`;
+}
+function rProjects(biz) {
+  const s=_state, ps=s.projects.filter(p=>p.biz===biz), st=projStats(biz);
+  let html = `
+  <div class="stats">
+    <div class="stat"><div class="lbl">OVERALL</div><div class="val" style="color:${BIZ[biz].accent}">${st.pct}%</div></div>
+    <div class="stat"><div class="lbl">STEPS DONE</div><div class="val" style="color:var(--green)">${st.done}/${st.total}</div></div>
+    <div class="stat"><div class="lbl">WAITING ON</div><div class="val" style="color:var(--amber)">${st.waiting}</div></div>
+  </div>
+  <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-bottom:14px;">
+    <div style="height:100%;width:${st.pct}%;background:linear-gradient(90deg,${BIZ[biz].accent},var(--green));transition:width 1s ease"></div>
+  </div>`;
+  if (ui.showNewProject) {
+    html += `<div class="form-panel">
+      <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent);">NEW PROJECT — ${BIZ[biz].name}</div>
+      <input id="np-title" placeholder="Project title">
+      <input id="np-sub" placeholder="Subtitle / description">
+      <div class="grid2">
+        <input id="np-brand" placeholder="Brand tag (e.g. WALMART)">
+        <select id="np-status">
+          <option value="new">New</option><option value="in-progress">In Progress</option>
+          <option value="issue">Needs Action</option><option value="nearly-done">Nearly Done</option>
+        </select>
+      </div>
+      <div class="row">
+        <button class="btn btn-red" style="flex:1" onclick="addProject('${biz}')">SAVE PROJECT</button>
+        <button class="btn btn-ghost" onclick="ui.showNewProject=false;render()">CANCEL</button>
+      </div>
+    </div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showNewProject=true;render()">+ NEW PROJECT</button>`;
+  }
+  if (!ps.length) html += `<div class="empty">No projects for ${BIZ[biz].short} yet.</div>`;
+  html += `<div class="col" style="gap:12px">` + ps.map(p=>projCard(p)).join("") + `</div>`;
+  return html;
+}
+function projCard(p) {
+  const meta = STATUS_META[p.status]||STATUS_META["new"];
+  const open = _state.openProject===p.id;
+  const done = p.steps.filter(x=>x.status==="done").length;
+  const pct = p.steps.length?Math.round(done/p.steps.length*100):0;
+  const waiting = p.steps.find(x=>x.status==="waiting");
+  const bc = BIZ[p.biz].accent;
+  let html = `<div class="card" style="${open?`border-color:${meta.accent};background:${meta.accent}14;`:''}">
+    <div style="padding:16px 18px;display:flex;align-items:center;gap:14px;">
+      <div style="cursor:pointer;display:flex;align-items:center;gap:14px;flex:1;min-width:0" onclick="toggleProject('${p.id}')">
+        ${ring(pct,meta.accent)}
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+            <span class="chip" style="background:${bc}22;color:${bc};border:1px solid ${bc}44">${esc(p.brand)}</span>
+            <span class="chip" style="background:${meta.accent}22;color:${meta.accent};border:1px solid ${meta.accent}44">${meta.label}</span>
+            <span style="font-size:10px;color:#475569;margin-left:auto">${meta.priority}</span>
+          </div>
+          <div class="syne" style="font-size:15px;font-weight:700;color:#f1f5f9;margin-bottom:2px">${esc(p.title)}</div>
+          <div style="font-size:11px;color:#475569">${esc(p.subtitle)}</div>
+        </div>
+      </div>
+      <button class="del-x" title="Delete project" onclick="delProject('${p.id}')">🗑</button>
+      <div style="font-size:18px;color:#334155;cursor:pointer;transform:rotate(${open?180:0}deg);transition:transform .3s" onclick="toggleProject('${p.id}')">⌄</div>
+    </div>`;
+  if (waiting) html += `
+    <div style="margin:0 16px ${open?0:16}px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;display:flex;gap:10px;align-items:center;">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;animation:pulse 2s infinite"></div>
+      <div><div style="font-size:10px;color:var(--amber);letter-spacing:0.12em;margin-bottom:2px">WAITING ON</div>
+      <div style="font-size:12px;color:#fde68a">${esc(waiting.detail)}</div>
+      <div style="font-size:11px;color:#92400e">${esc(waiting.sub)}</div></div>
+    </div>`;
+  if (open) {
+    html += `<div style="padding:14px 16px 16px"><div class="col">`;
+    html += p.steps.map(step=>{
+      const sc = STEP_COLORS[step.status];
+      return `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:8px;padding:10px 14px;display:flex;gap:12px;align-items:flex-start">
+        <div onclick="cycleStep('${p.id}',${step.id})" title="Click to cycle status"
+          style="width:24px;height:24px;border-radius:6px;background:${step.status==='upcoming'?'rgba(255,255,255,0.05)':sc.text+'22'};border:1px solid ${sc.border};display:flex;align-items:center;justify-content:center;font-size:11px;color:${sc.text};flex-shrink:0;cursor:pointer;user-select:none">
+          ${step.status==="done"?"✓":step.id}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;font-weight:500;color:${step.status==='upcoming'?'#475569':'#e2e8f0'};margin-bottom:2px">${esc(step.label)}</div>
+          <div style="font-size:12px;color:${step.status==='upcoming'?'#334155':'#94a3b8'}">${esc(step.detail)}</div>
+          ${step.sub?`<div style="font-size:11px;color:${step.status==='done'?'#065f46':step.status==='waiting'?'#92400e':'#1e293b'};margin-top:2px">${esc(step.sub)}</div>`:''}
+        </div>
+        <button class="del-x" onclick="delStep('${p.id}',${step.id})">×</button>
+      </div>`;
+    }).join("");
+    if (ui.addStepFor===p.id) {
+      html += `<div style="background:rgba(59,130,246,0.06);border:1px dashed rgba(59,130,246,0.3);border-radius:8px;padding:12px" class="col">
+        <input id="st-label" placeholder="Step label">
+        <input id="st-detail" placeholder="Detail">
+        <input id="st-sub" placeholder="Sub / timing (optional)">
+        <div class="row">
+          <select id="st-status" style="flex:1"><option value="upcoming">Upcoming</option><option value="waiting">Waiting</option><option value="done">Done</option></select>
+          <button class="btn btn-red" onclick="addStep('${p.id}')">ADD</button>
+          <button class="btn btn-ghost" onclick="ui.addStepFor=null;render()">✕</button>
+        </div></div>`;
+    } else {
+      html += `<button class="btn-dashed" onclick="ui.addStepFor='${p.id}';render()">+ ADD STEP</button>`;
+    }
+    html += `</div></div>`;
+  }
+  return html + `</div>`;
+}
+function toggleProject(id){ _state.openProject = _state.openProject===id?null:id; commit(); }
+function delProject(id){ if(!confirm("Delete this project?"))return; _state.projects=_state.projects.filter(p=>p.id!==id); commit(); }
+function addProject(biz){
+  const t=document.getElementById("np-title").value.trim(); if(!t) return;
+  const p={ id:uid("proj"), biz, brand:(document.getElementById("np-brand").value.trim()||"CUSTOM").toUpperCase(),
+    title:t, subtitle:document.getElementById("np-sub").value.trim()||"New project",
+    status:document.getElementById("np-status").value, steps:[] };
+  _state.projects.push(p); _state.openProject=p.id; ui.showNewProject=false; commit();
+}
+function addStep(pid){
+  const l=document.getElementById("st-label").value.trim(); if(!l) return;
+  const p=_state.projects.find(x=>x.id===pid);
+  const nid=(p.steps.length?Math.max(...p.steps.map(s=>s.id)):0)+1;
+  p.steps.push({ id:nid, label:l, detail:document.getElementById("st-detail").value.trim()||"—",
+    sub:document.getElementById("st-sub").value.trim(), status:document.getElementById("st-status").value });
+  ui.addStepFor=null; commit();
+}
+function delStep(pid,sid){ const p=_state.projects.find(x=>x.id===pid); p.steps=p.steps.filter(s=>s.id!==sid); commit(); }
+function cycleStep(pid,sid){
+  const cyc={upcoming:"waiting",waiting:"done",done:"upcoming"};
+  const p=_state.projects.find(x=>x.id===pid);
+  const st=p.steps.find(s=>s.id===sid); st.status=cyc[st.status]; commit();
+}
+
+// ========== PRODUCTS (WFS tracker sync) ==========
+// Pulls from the same centauri-wfs-data.json your WFS Profit Tracker
+// auto-saves (Connect Folder once), from an exported tracker JSON, or a URL.
+const WFS_FILE = "centauri-wfs-data.json";
+const money = n => "$" + (Number(n)||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// -- tiny IndexedDB store to persist the folder handle across sessions --
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("bigboss-fs", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("handles");
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function idbSet(k, v) { const db = await idb(); return new Promise((res,rej)=>{ const t=db.transaction("handles","readwrite"); t.objectStore("handles").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
+async function idbGet(k) { const db = await idb(); return new Promise((res,rej)=>{ const t=db.transaction("handles","readonly"); const q=t.objectStore("handles").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+
+async function connectWfsFolder() {
+  if (!window.showDirectoryPicker) { ui.catStatus = "Folder connect needs Chrome, Edge, or Brave — use UPDATE to pick an exported JSON instead."; render(); return; }
+  try {
+    const h = await window.showDirectoryPicker({ mode: "read" });
+    await idbSet("wfsdir", h);
+    ui.catStatus = "Folder connected — click UPDATE to pull " + WFS_FILE;
+  } catch(e) { if (e.name !== "AbortError") ui.catStatus = "Couldn't connect folder: " + e.message; }
+  render();
+}
+async function readWfsFromFolder() {
+  const h = await idbGet("wfsdir"); if (!h) return null;
+  let perm = await h.queryPermission({ mode: "read" });
+  if (perm !== "granted") perm = await h.requestPermission({ mode: "read" });
+  if (perm !== "granted") return null;
+  const fh = await h.getFileHandle(WFS_FILE);
+  return JSON.parse(await (await fh.getFile()).text());
+}
+async function updateCatalog(biz) {
+  ui.catStatus = "Updating…"; render();
+  // 1) connected tracker folder (Centauri's WFS data file)
+  if (biz === "centauri") {
+    try { const data = await readWfsFromFolder(); if (data) return applyCatalog(biz, data, "connected folder"); }
+    catch(e) { /* fall through */ }
+  }
+  // 2) configured URL
+  const url = _state.catalogMeta[biz].srcUrl;
+  if (url) {
+    try { const r = await fetch(url, { cache: "no-store" }); if (r.ok) return applyCatalog(biz, await r.json(), "URL"); }
+    catch(e) { /* fall through */ }
+  }
+  // 3) pick an exported tracker JSON
+  ui.catStatus = "Pick your tracker JSON (Export button in the tracker, or " + WFS_FILE + ")";
+  render();
+  const inp = document.getElementById("catFile"); inp.dataset.biz = biz; inp.click();
+}
+function applyCatalog(biz, data, source) {
+  const list = Array.isArray(data) ? data : (data.products || []);
+  _state.catalog[biz] = list.map(p => ({
+    id: p.id || uid("prod"), name: p.name || "Unnamed product", brand: p.brand || "",
+    sku: p.sku || "", itemid: p.itemid || "", gtin: p.gtin || "", url: p.url || "",
+    price: Number(p.price)||0, margin: Number(p.margin)||0, qty: Number(p.qty)||0,
+    estsales: Number(p.estsales)||0, listingscore: Number(p.listingscore)||0,
+    status: p.status || "Published", notes: p.notes || "",
+  }));
+  const m = _state.catalogMeta[biz];
+  m.lastSync = Date.now(); m.source = source;
+  m.shipments = Array.isArray(data.shipments) ? data.shipments.length : 0;
+  ui.catStatus = "✓ Pulled " + _state.catalog[biz].length + " product(s) from " + source;
+  ui.editProd = null; ui.showForm = {};
+  commit();
+}
+function catStats(biz) {
+  const rows = _state.catalog[biz];
+  const units = rows.reduce((a,p)=>a+p.qty, 0);
+  const profit = rows.reduce((a,p)=>a+p.price*p.qty*p.margin/100, 0);
+  return { skus: rows.length, units, profit };
+}
+function lqsColor(v){ return v>=80 ? "var(--green)" : v>=60 ? "var(--amber)" : "#ef4444"; }
+function prodForm(biz, p) {
+  const v = k => esc(p ? p[k] : "");
+  return `<div class="form-panel">
+    <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent)">${p?"EDIT":"NEW"} PRODUCT — ${BIZ[biz].name}</div>
+    <input id="pr-name" placeholder="Product name" value="${v("name")}">
+    <div class="grid2"><input id="pr-brand" placeholder="Brand" value="${v("brand")}"><input id="pr-sku" placeholder="SKU" value="${v("sku")}"></div>
+    <div class="grid2"><input id="pr-price" type="number" step="0.01" placeholder="Sale price $" value="${p?p.price:""}"><input id="pr-margin" type="number" step="0.1" placeholder="Margin %" value="${p?p.margin:""}"></div>
+    <div class="grid2"><input id="pr-qty" type="number" placeholder="Qty on hand" value="${p?p.qty:""}"><input id="pr-lqs" type="number" placeholder="Listing score %" value="${p?p.listingscore:""}"></div>
+    <div class="grid2"><input id="pr-estsales" type="number" placeholder="Est. sales /mo" value="${p?p.estsales:""}">
+      <select id="pr-status">${["Published","Draft","Processing","Suspended","Retired"].map(s=>`<option ${p&&p.status===s?"selected":""}>${s}</option>`).join("")}</select></div>
+    <input id="pr-url" placeholder="Listing URL" value="${v("url")}">
+    <input id="pr-notes" placeholder="Notes" value="${v("notes")}">
+    <div class="row">
+      <button class="btn btn-red" style="flex:1" onclick="saveProd('${biz}',${p?`'${p.id}'`:"null"})">SAVE PRODUCT</button>
+      <button class="btn btn-ghost" onclick="ui.editProd=null;ui.showForm.prod=false;render()">CANCEL</button>
+    </div></div>`;
+}
+function rCatalog(biz) {
+  const rows = _state.catalog[biz], m = _state.catalogMeta[biz], st = catStats(biz);
+  const isK = biz === "keypr";
+  let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div class="section-title" style="margin:0">PRODUCT PORTFOLIO — ${BIZ[biz].name}</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="lbl">SKUS</div><div class="val" style="color:${BIZ[biz].accent}">${st.skus}</div></div>
+    <div class="stat"><div class="lbl">ON-HAND UNITS</div><div class="val" style="color:var(--blue)">${st.units}</div></div>
+    <div class="stat"><div class="lbl">AVAIL. EST. PROFIT</div><div class="val" style="color:var(--green)">$${Math.round(st.profit).toLocaleString("en-US")}</div></div>
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <button class="btn btn-red" style="flex:2" onclick="updateCatalog('${biz}')">⟳ UPDATE</button>
+    ${biz==="centauri"?`<button class="btn btn-ghost" style="flex:1" onclick="connectWfsFolder()">◇ CONNECT FOLDER</button>`:""}
+    <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.url=!ui.showForm.url;render()">⚙ URL</button>
+  </div>`;
+  if (ui.showForm.url) {
+    html += `<div class="form-panel">
+      <div style="font-size:10px;letter-spacing:0.15em;color:var(--accent)">DATA URL (optional — a published ${WFS_FILE} or exported JSON)</div>
+      <input id="cat-url" placeholder="https://…/${WFS_FILE}" value="${esc(m.srcUrl)}">
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="saveCatUrl('${biz}')">SAVE URL</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.url=false;render()">CANCEL</button></div></div>`;
+  }
+  if (ui.catStatus) html += `<div style="font-size:11px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.catStatus)}</div>`;
+  if (m.lastSync) html += `<div style="font-size:10px;color:#475569;letter-spacing:0.08em;margin-bottom:12px">LAST UPDATE: ${new Date(m.lastSync).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).toUpperCase()} · SOURCE: ${esc((m.source||"").toUpperCase())}${m.shipments?` · ${m.shipments} SHIPMENT(S) IN FILE`:""}</div>`;
+  if (ui.showForm.prod && !ui.editProd) html += prodForm(biz, null);
+  else html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.prod=true;ui.editProd=null;render()">+ ADD PRODUCT MANUALLY</button>`;
+  if (!rows.length) html += `<div class="empty">No products yet.<br><br>${biz==="centauri"
+    ? "Click <b>⟳ UPDATE</b> to pull from your WFS Profit Tracker — connect the folder it auto-saves to (your Obsidian publish folder), or pick an exported JSON."
+    : "Click <b>⟳ UPDATE</b> to import a tracker/JSON export, or add products manually."}</div>`;
+  html += `<div class="col" style="gap:10px">` + rows.map(p => {
+    if (ui.editProd === p.id) return prodForm(biz, p);
+    const unitProfit = p.price * p.margin / 100;
+    const stColor = p.status==="Published" ? "var(--green)" : p.status==="Suspended" ? "#ef4444" : "var(--amber)";
+    return `<div class="card" style="padding:14px 16px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        ${p.brand?`<span class="chip" style="background:${BIZ[biz].accent}22;color:${BIZ[biz].accent};border:1px solid ${BIZ[biz].accent}44">${esc(p.brand.toUpperCase())}</span>`:""}
+        <span class="chip" style="background:${stColor}22;color:${stColor};border:1px solid ${stColor}44">${esc(p.status.toUpperCase())}</span>
+        ${p.qty===0?`<span class="chip" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.4)">OUT OF STOCK</span>`:""}
+        <span style="margin-left:auto;display:flex;gap:2px">
+          <button class="del-x" title="Edit" onclick="ui.editProd='${p.id}';ui.showForm.prod=false;render()">✎</button>
+          <button class="del-x" title="Delete" onclick="delProd('${biz}','${p.id}')">×</button>
+        </span>
+      </div>
+      <div class="syne" style="font-size:14px;font-weight:700;color:#f1f5f9;margin-bottom:3px">${
+        p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(p.name)} ↗</a>`:esc(p.name)}</div>
+      <div style="font-size:11px;color:#475569;margin-bottom:8px">${[p.sku&&"SKU "+p.sku, p.itemid&&"ID "+p.itemid, p.gtin&&"GTIN "+p.gtin].filter(Boolean).map(esc).join(" · ")||"—"}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:${p.notes?8:0}px">
+        <div><div style="font-size:9px;color:#334155;letter-spacing:0.1em">PRICE</div><div style="font-size:13px;color:#e2e8f0">${money(p.price)}</div></div>
+        <div><div style="font-size:9px;color:#334155;letter-spacing:0.1em">QTY</div><div style="font-size:13px;color:${p.qty===0?"#ef4444":"#e2e8f0"}">${p.qty}</div></div>
+        <div><div style="font-size:9px;color:#334155;letter-spacing:0.1em">PROFIT/UNIT</div><div style="font-size:13px;color:var(--green)">${money(unitProfit)} <span style="color:#475569;font-size:10px">(${p.margin}%)</span></div></div>
+        <div><div style="font-size:9px;color:#334155;letter-spacing:0.1em">LQS</div><div style="font-size:13px;color:${lqsColor(p.listingscore)}">${p.listingscore||"—"}${p.listingscore?"%":""}</div></div>
+      </div>
+      ${p.estsales?`<div style="font-size:10px;color:#475569;margin-bottom:${p.notes?4:0}px">Est. ${p.estsales} sales/mo · potential ${money(unitProfit*p.estsales)}/mo at full velocity</div>`:""}
+      ${p.notes?`<div style="font-size:11px;color:#64748b;border-top:1px solid rgba(255,255,255,0.05);padding-top:7px">${esc(p.notes)}</div>`:""}
+    </div>`;
+  }).join("") + `</div>`;
+  return html;
+}
+function saveCatUrl(biz){ _state.catalogMeta[biz].srcUrl = document.getElementById("cat-url").value.trim(); ui.showForm.url=false; ui.catStatus=_state.catalogMeta[biz].srcUrl?"URL saved — UPDATE will try it after the connected folder.":"URL cleared."; commit(); }
+function saveProd(biz, id){
+  const g = k => document.getElementById("pr-"+k).value.trim();
+  const num = k => Number(document.getElementById("pr-"+k).value)||0;
+  const name = g("name"); if (!name) return;
+  const obj = { name, brand:g("brand"), sku:g("sku"), price:num("price"), margin:num("margin"),
+    qty:num("qty"), listingscore:num("lqs"), estsales:num("estsales"),
+    status:document.getElementById("pr-status").value, url:g("url"), notes:g("notes") };
+  if (id) { const p=_state.catalog[biz].find(x=>x.id===id); Object.assign(p, obj); }
+  else _state.catalog[biz].push({ id:uid("prod"), itemid:"", gtin:"", ...obj });
+  ui.editProd=null; ui.showForm.prod=false; commit();
+}
+function delProd(biz,id){ if(!confirm("Delete this product?"))return; _state.catalog[biz]=_state.catalog[biz].filter(p=>p.id!==id); commit(); }
+
+// ========== FINANCIALS ==========
+function rFinancials(biz) {
+  const rows=_state.financials[biz]||[];
+  let html = `<div class="section-title">FINANCIAL SNAPSHOT — ${BIZ[biz].name}</div>`;
+  if (ui.showForm.fin) {
+    html += `<div class="form-panel">
+      <input id="fin-label" placeholder="Metric (e.g. UNI5 monthly revenue)">
+      <div class="grid2"><input id="fin-value" placeholder="Value (e.g. $9,085)"><input id="fin-note" placeholder="Note (optional)"></div>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addFin('${biz}')">SAVE METRIC</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.fin=false;render()">CANCEL</button></div></div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.fin=true;render()">+ ADD METRIC</button>`;
+  }
+  if (!rows.length) html += `<div class="empty">No financial entries yet. Add revenue, margins, or SKU numbers you want to track.</div>`;
+  html += `<div class="col">` + rows.map(r=>`
+    <div class="card" style="padding:14px 16px;display:flex;align-items:center;gap:14px;">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:11px;color:var(--muted);letter-spacing:0.08em;margin-bottom:3px">${esc(r.label)}</div>
+        <div class="syne" style="font-size:20px;font-weight:800;color:${BIZ[biz].accent}">${esc(r.value)}</div>
+        ${r.note?`<div style="font-size:11px;color:#475569;margin-top:3px">${esc(r.note)}</div>`:''}
+      </div>
+      <button class="del-x" onclick="delFin('${biz}','${r.id}')">×</button>
+    </div>`).join("") + `</div>`;
+  return html;
+}
+function addFin(biz){
+  const l=document.getElementById("fin-label").value.trim(); if(!l) return;
+  (_state.financials[biz]=_state.financials[biz]||[]).push({ id:uid("fin"), label:l,
+    value:document.getElementById("fin-value").value.trim()||"—", note:document.getElementById("fin-note").value.trim() });
+  ui.showForm.fin=false; commit();
+}
+function delFin(biz,id){ _state.financials[biz]=_state.financials[biz].filter(r=>r.id!==id); commit(); }
+
+// ========== DEADLINES ==========
+function daysUntil(d){ return Math.ceil((new Date(d+"T23:59:59") - new Date())/86400000); }
+function rDeadlines(biz) {
+  const rows=_state.deadlines.filter(d=>d.biz===biz).sort((a,b)=>a.date.localeCompare(b.date));
+  let html = `<div class="section-title">DEADLINES & REMINDERS — ${BIZ[biz].name}</div>`;
+  if (ui.showForm.dl) {
+    html += `<div class="form-panel">
+      <input id="dl-title" placeholder="What's due? (e.g. Restock UNI5)">
+      <div class="grid2"><input id="dl-date" type="date"><input id="dl-note" placeholder="Note (optional)"></div>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDl('${biz}')">SAVE DEADLINE</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.dl=false;render()">CANCEL</button></div></div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.dl=true;render()">+ ADD DEADLINE</button>`;
+  }
+  if (!rows.length) html += `<div class="empty">No deadlines tracked for ${BIZ[biz].short}.</div>`;
+  html += `<div class="col">` + rows.map(d=>{
+    const n=daysUntil(d.date);
+    const badge = d.done ? `<span class="chip" style="background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.4)">DONE</span>`
+      : n<0 ? `<span class="chip" style="background:rgba(239,68,68,0.14);color:#ef4444;border:1px solid rgba(239,68,68,0.4)">${-n}D OVERDUE</span>`
+      : n===0 ? `<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">TODAY</span>`
+      : `<span class="chip" style="background:rgba(59,130,246,0.15);color:var(--blue);border:1px solid rgba(59,130,246,0.4)">IN ${n}D</span>`;
+    return `<div class="card" style="padding:13px 16px;display:flex;align-items:center;gap:12px;${d.done?'opacity:0.55':''}">
+      <div onclick="toggleDl('${d.id}')" title="Toggle done" style="width:22px;height:22px;border-radius:6px;border:1px solid ${d.done?'var(--green)':'rgba(255,255,255,0.15)'};display:flex;align-items:center;justify-content:center;color:var(--green);cursor:pointer;flex-shrink:0">${d.done?"✓":""}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:#e2e8f0;margin-bottom:2px;${d.done?'text-decoration:line-through':''}">${esc(d.title)}</div>
+        <div style="font-size:11px;color:#475569">${new Date(d.date+"T12:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}${d.note?` · ${esc(d.note)}`:''}</div>
+      </div>
+      ${badge}<button class="del-x" onclick="delDl('${d.id}')">×</button>
+    </div>`;
+  }).join("") + `</div>`;
+  return html;
+}
+function addDl(biz){
+  const t=document.getElementById("dl-title").value.trim(), dt=document.getElementById("dl-date").value;
+  if(!t||!dt) return;
+  _state.deadlines.push({ id:uid("dl"), biz, title:t, date:dt, note:document.getElementById("dl-note").value.trim(), done:false });
+  ui.showForm.dl=false; commit();
+}
+function toggleDl(id){ const d=_state.deadlines.find(x=>x.id===id); d.done=!d.done; commit(); }
+function delDl(id){ _state.deadlines=_state.deadlines.filter(x=>x.id!==id); commit(); }
+
+// ========== CONTACTS ==========
+function rContacts(biz) {
+  const tab = ui.contactTab;
+  let html = `<div class="section-title">CONTACTS — ${BIZ[biz].name}</div>
+  <div class="sub-tabs" style="margin-bottom:14px">
+    <button class="sub-tab ${tab==='list'?'active':''}" onclick="ui.contactTab='list';render()">CONTACT LIST</button>
+    <button class="sub-tab ${tab==='links'?'active':''}" onclick="ui.contactTab='links';render()">CROSS-BUSINESS LINKS</button>
+  </div>`;
+  if (tab==="links") return html + rLinks();
+  const rows=_state.contacts.filter(c=>c.biz===biz);
+  if (ui.showForm.ct) {
+    html += `<div class="form-panel">
+      <input id="ct-name" placeholder="Name / company">
+      <div class="grid2"><input id="ct-role" placeholder="Role (e.g. Supplier, Lab)"><input id="ct-phone" placeholder="Phone"></div>
+      <input id="ct-email" placeholder="Email">
+      <input id="ct-notes" placeholder="Notes">
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addContact('${biz}')">SAVE CONTACT</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.ct=false;render()">CANCEL</button></div></div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.ct=true;render()">+ ADD CONTACT</button>`;
+  }
+  if (!rows.length) html += `<div class="empty">No contacts for ${BIZ[biz].short} yet.</div>`;
+  html += `<div class="col">` + rows.map(c=>{
+    const linked=_state.links.filter(l=>l.a===c.id||l.b===c.id).length;
+    return `<div class="card" style="padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+      <div style="width:36px;height:36px;border-radius:10px;background:${BIZ[biz].accent}18;border:1px solid ${BIZ[biz].accent}44;display:flex;align-items:center;justify-content:center;color:${BIZ[biz].accent};font-weight:600;flex-shrink:0">${esc(c.name.charAt(0).toUpperCase())}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:13px;font-weight:500;color:#f1f5f9">${esc(c.name)}</span>
+          ${c.role?`<span class="chip" style="background:rgba(139,92,246,0.15);color:var(--purple);border:1px solid rgba(139,92,246,0.35)">${esc(c.role.toUpperCase())}</span>`:''}
+          ${linked?`<span class="chip" style="background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-brd)">🔗 LINKED</span>`:''}
+        </div>
+        <div style="font-size:11px;color:#64748b;margin-top:3px">${[c.phone,c.email].filter(Boolean).map(esc).join(" · ")||"—"}</div>
+        ${c.notes?`<div style="font-size:11px;color:#475569;margin-top:3px">${esc(c.notes)}</div>`:''}
+      </div>
+      <button class="del-x" onclick="delContact('${c.id}')">×</button>
+    </div>`;
+  }).join("") + `</div>`;
+  return html;
+}
+function rLinks() {
+  const cs=id=>_state.contacts.find(c=>c.id===id);
+  const cent=_state.contacts.filter(c=>c.biz==="centauri"), key=_state.contacts.filter(c=>c.biz==="keypr");
+  let html="";
+  if (!cent.length || !key.length) {
+    html += `<div class="empty" style="margin-bottom:12px">To link contacts across businesses, add at least one contact to each business first.<br><br>
+      Centauri contacts: ${cent.length} · Keypr contacts: ${key.length}</div>`;
+  } else if (ui.showForm.lk) {
+    html += `<div class="form-panel">
+      <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent)">LINK A CONTACT ACROSS BUSINESSES</div>
+      <div class="grid2">
+        <div><div style="font-size:10px;color:${BIZ.centauri.accent};letter-spacing:0.1em;margin-bottom:5px">CENTAURI WORLD</div>
+        <select id="lk-a">${cent.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
+        <div><div style="font-size:10px;color:${BIZ.keypr.accent};letter-spacing:0.1em;margin-bottom:5px">KEYPR ON</div>
+        <select id="lk-b">${key.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
+      </div>
+      <input id="lk-note" placeholder="Relationship note (e.g. same supplier, shared 3PL)">
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addLink()">CREATE LINK</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.lk=false;render()">CANCEL</button></div></div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.lk=true;render()">+ LINK CONTACTS</button>`;
+  }
+  if (!_state.links.length) html += `<div class="empty">No cross-business links yet. Links connect a Centauri contact with a Keypr contact — useful for shared suppliers, labs, or service providers.</div>`;
+  html += `<div class="col">` + _state.links.map(l=>{
+    const a=cs(l.a), b=cs(l.b);
+    if(!a||!b) return "";
+    return `<div class="card" style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="chip" style="background:${BIZ.centauri.accent}18;color:${BIZ.centauri.accent};border:1px solid ${BIZ.centauri.accent}44">${esc(a.name)}</span>
+        <span style="color:var(--accent);font-size:14px">⟷</span>
+        <span class="chip" style="background:${BIZ.keypr.accent}18;color:${BIZ.keypr.accent};border:1px solid ${BIZ.keypr.accent}44">${esc(b.name)}</span>
+        <button class="del-x" style="margin-left:auto" onclick="delLink('${l.id}')">×</button>
+      </div>
+      ${l.note?`<div style="font-size:11px;color:#64748b;margin-top:8px">${esc(l.note)}</div>`:''}
+    </div>`;
+  }).join("") + `</div>`;
+  return html;
+}
+function addContact(biz){
+  const n=document.getElementById("ct-name").value.trim(); if(!n) return;
+  _state.contacts.push({ id:uid("ct"), biz, name:n, role:document.getElementById("ct-role").value.trim(),
+    phone:document.getElementById("ct-phone").value.trim(), email:document.getElementById("ct-email").value.trim(),
+    notes:document.getElementById("ct-notes").value.trim() });
+  ui.showForm.ct=false; commit();
+}
+function delContact(id){
+  if(!confirm("Delete this contact? Any cross-business links to it will also be removed.")) return;
+  _state.contacts=_state.contacts.filter(c=>c.id!==id);
+  _state.links=_state.links.filter(l=>l.a!==id&&l.b!==id); commit();
+}
+function addLink(){
+  _state.links.push({ id:uid("lk"), a:document.getElementById("lk-a").value,
+    b:document.getElementById("lk-b").value, note:document.getElementById("lk-note").value.trim() });
+  ui.showForm.lk=false; commit();
+}
+function delLink(id){ _state.links=_state.links.filter(l=>l.id!==id); commit(); }
+
+// ========== NOTES ==========
+function rNotes(biz) {
+  const rows=_state.notes.filter(n=>n.biz===biz).sort((a,b)=>b.ts-a.ts);
+  let html = `<div class="section-title">NOTES & IDEAS — ${BIZ[biz].name}</div>
+  <div class="form-panel" style="background:var(--panel);border-color:var(--border)">
+    <textarea id="note-text" rows="3" placeholder="Capture an idea, decision, or reminder for ${BIZ[biz].short}..."></textarea>
+    <button class="btn btn-red" onclick="addNote('${biz}')">SAVE NOTE</button>
+  </div>`;
+  if (!rows.length) html += `<div class="empty">No notes yet.</div>`;
+  html += `<div class="col">` + rows.map(n=>`
+    <div class="card" style="padding:13px 16px;display:flex;gap:12px;align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:13px;color:#cbd5e1;white-space:pre-wrap;word-break:break-word">${esc(n.text)}</div>
+        <div style="font-size:10px;color:#334155;margin-top:6px;letter-spacing:0.08em">${new Date(n.ts).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}).toUpperCase()}</div>
+      </div>
+      <button class="del-x" onclick="delNote('${n.id}')">×</button>
+    </div>`).join("") + `</div>`;
+  return html;
+}
+function addNote(biz){
+  const t=document.getElementById("note-text").value.trim(); if(!t) return;
+  _state.notes.push({ id:uid("nt"), biz, text:t, ts:Date.now() }); commit();
+}
+function delNote(id){ _state.notes=_state.notes.filter(n=>n.id!==id); commit(); }
+
+// ========== PROFILE ==========
+const PROFILE_FIELDS = [
+  ["legal","LEGAL NAME"],["brands","BRANDS"],["marketplaces","MARKETPLACES"],
+  ["ids","KEY IDS / SKUS"],["colors","BRAND COLORS"],["notes","NOTES"],
+];
+function rProfile(biz) {
+  const p=_state.profiles[biz];
+  let html = `<div class="section-title">BUSINESS PROFILE — ${BIZ[biz].name}</div>`;
+  if (biz==="keypr") html += `<div style="width:290px;margin:0 auto 14px">${keyprLogoSVG()}</div>`;
+  if (biz==="centauri") html += `<div style="width:290px;margin:0 auto 14px">${centauriLogoSVG()}</div>`;
+  if (ui.showForm.prof) {
+    html += `<div class="form-panel">` + PROFILE_FIELDS.map(([k,l])=>`
+      <div><div style="font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:4px">${l}</div>
+      ${k==="notes"||k==="colors"?`<textarea id="pf-${k}" rows="2">${esc(p[k])}</textarea>`:`<input id="pf-${k}" value="${esc(p[k])}">`}</div>`).join("") + `
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="saveProfile('${biz}')">SAVE PROFILE</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.prof=false;render()">CANCEL</button></div></div>`;
+    return html;
+  }
+  html += `<div class="card" style="padding:18px;border-top:2px solid ${BIZ[biz].accent}">` +
+    PROFILE_FIELDS.map(([k,l])=>`
+      <div style="margin-bottom:14px">
+        <div style="font-size:10px;color:var(--faint);letter-spacing:0.15em;margin-bottom:4px">${l}</div>
+        <div style="font-size:13px;color:${p[k]?'#e2e8f0':'#334155'};white-space:pre-wrap">${esc(p[k])||"—"}</div>
+      </div>`).join("") +
+    `<button class="btn btn-ghost" onclick="ui.showForm.prof=true;render()">✎ EDIT PROFILE</button>
+  </div>`;
+  html += rDocs(biz);
+  return html;
+}
+function saveProfile(biz){
+  PROFILE_FIELDS.forEach(([k])=>{ _state.profiles[biz][k]=document.getElementById("pf-"+k).value.trim(); });
+  ui.showForm.prof=false; commit();
+}
+
+// ========== BUSINESS DOCUMENTS (per business) ==========
+// Obsidian folder connect + Update scan, saved files/screenshots (incl. paste),
+// general links, and a dedicated Dun & Bradstreet panel.
+const fmtSize = n => n>1048576 ? (n/1048576).toFixed(1)+" MB" : n>1024 ? Math.round(n/1024)+" KB" : (n||0)+" B";
+const fmtTs = t => new Date(t).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+const fileIcon = name => {
+  const e=(name.split(".").pop()||"").toLowerCase();
+  return {pdf:"📕",doc:"📄",docx:"📄",md:"📝",txt:"📝",xls:"📊",xlsx:"📊",csv:"📊",
+    png:"🖼",jpg:"🖼",jpeg:"🖼",gif:"🖼",webp:"🖼",svg:"🖼",json:"⚙",zip:"🗜"}[e]||"📎";
+};
+// D&B wordmark (SVG recreation: thin lowercase blue "dun & bradstreet")
+function dnbLogoSVG() {
+  return `
+  <svg viewBox="0 0 620 84" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block" aria-label="dun &amp; bradstreet">
+    <text x="0" y="60" font-family="'Century Gothic','Futura','Trebuchet MS',sans-serif"
+      font-weight="300" font-size="54" letter-spacing="6" fill="#4d94bd">dun</text>
+    <text x="128" y="66" font-family="'Century Gothic','Futura','Trebuchet MS',sans-serif"
+      font-weight="400" font-size="78" fill="#2e6f9e">&amp;</text>
+    <text x="196" y="60" font-family="'Century Gothic','Futura','Trebuchet MS',sans-serif"
+      font-weight="300" font-size="54" letter-spacing="6" fill="#5fa8c9">bradstreet</text>
+  </svg>`;
+}
+// Centauri World logo (SVG recreation: blue dot-sphere globe + wordmark)
+function centauriGlobeDots() {
+  // regular dot lattice clipped to a sphere, with a circular cut-out on the
+  // right that carves the crescent "C" — dots swell toward the sphere's center
+  let dots = "";
+  const cx=60, cy=60, R=47, step=6.9;
+  const kx=cx+R*0.62, kr=R*0.78;
+  let row=0;
+  for (let y=cy-R+4; y<=cy+R-3; y+=step, row++) {
+    const off=(row%2)*step/2;
+    for (let x=cx-R+2+off; x<=cx+R; x+=step) {
+      const r=Math.hypot(x-cx,y-cy);
+      if (r>R-2) continue;                      // outside sphere
+      if (Math.hypot(x-kx,y-cy)<kr) continue;    // inside cut-out → crescent
+      const s=1.0+2.9*Math.sqrt(Math.max(0,1-(r/R)*(r/R)));
+      dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${s.toFixed(2)}" fill="#1A6AE8"/>`;
+    }
+  }
+  return dots;
+}
+function centauriMarkSVG() {
+  return `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${centauriGlobeDots()}</svg>`;
+}
+function centauriLogoSVG() {
+  return `
+  <svg viewBox="0 0 460 104" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block" aria-label="Centauri World LLC">
+    <text x="230" y="46" text-anchor="middle" font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="700" font-size="36"
+      textLength="436" lengthAdjust="spacingAndGlyphs" fill="#1A6AE8">CENTAURI WORLD</text>
+    <text x="230" y="86" text-anchor="middle" font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="900" font-size="19"
+      textLength="100" lengthAdjust="spacingAndGlyphs" fill="#C4993A">LLC</text>
+  </svg>`;
+}
+function rDocs(biz) {
+  const D=_state.docs[biz], scan=D.scan||{files:[]};
+  let html = `<div class="section-title" style="margin-top:26px">BUSINESS DOCUMENTS — ${BIZ[biz].name}</div>
+  <div class="row" style="margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn btn-red" style="flex:2;min-width:110px" onclick="scanDocs('${biz}')">⟳ UPDATE</button>
+    <button class="btn btn-ghost" style="flex:2;min-width:150px" onclick="connectDocsFolder('${biz}')">◇ CONNECT OBSIDIAN FOLDER</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="pickDocFiles('${biz}')">+ FILES</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.dlink=!ui.showForm.dlink;render()">+ LINK</button>
+  </div>
+  <div style="font-size:10px;color:#334155;margin-bottom:10px">Tip: with this page open you can paste (Ctrl+V) a screenshot straight into saved files.</div>`;
+  if (ui.docStatus) html += `<div style="font-size:11px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.docStatus)}</div>`;
+  if (ui.showForm.dlink) {
+    html += `<div class="form-panel">
+      <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent)">ADD LINK</div>
+      <input id="dk-label" placeholder="Label (e.g. Walmart Seller Center)">
+      <input id="dk-url" placeholder="https://…">
+      <label style="display:flex;gap:8px;align-items:center;font-size:11px;color:#94a3b8;cursor:pointer">
+        <input type="checkbox" id="dk-dnb" style="width:auto"> Put in the Dun &amp; Bradstreet section</label>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDocLink('${biz}')">SAVE LINK</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.dlink=false;render()">CANCEL</button></div></div>`;
+  }
+  // --- Dun & Bradstreet panel ---
+  html += `<div class="card" style="padding:14px 16px;margin-bottom:12px;border-left:3px solid #2e6f9e">
+    <div style="width:200px;margin-bottom:12px" title="Dun &amp; Bradstreet">${dnbLogoSVG()}</div>
+    ${D.dnb.length ? `<div class="col">`+D.dnb.map(l=>`
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="flex-shrink:0">🔗</span>
+        <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:12px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
+        <button class="del-x" onclick="delDocLink('${biz}','dnb','${l.id}')">×</button>
+      </div>`).join("")+`</div>` : `<div style="font-size:11px;color:#475569">No D&amp;B links yet — use + LINK and check the D&amp;B box.</div>`}
+  </div>`;
+  // --- Obsidian folder files ---
+  html += `<div style="font-size:10px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">OBSIDIAN FOLDER${scan.folderName?` — ${esc(scan.folderName.toUpperCase())}`:""}${scan.lastScan?` · UPDATED ${fmtTs(scan.lastScan).toUpperCase()}`:""}</div>`;
+  if (!scan.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No folder connected yet. Click <b>◇ CONNECT OBSIDIAN FOLDER</b> (Chrome/Edge/Brave), then <b>⟳ UPDATE</b> pulls the file list — and re-pulls it any time.</div>`;
+  else html += `<div class="col" style="margin-bottom:12px">`+scan.files.map((f,i)=>`
+    <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center;cursor:pointer" onclick="openScanFile('${biz}',${i})" title="Click to open">
+      <span>${fileIcon(f.name)}</span>
+      <span style="flex:1;min-width:0;font-size:12px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
+      <span style="font-size:10px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.mtime)}</span>
+    </div>`).join("")+`</div>`;
+  // --- Saved files & screenshots ---
+  html += `<div style="font-size:10px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">SAVED FILES &amp; SCREENSHOTS</div>`;
+  if (!D.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">Nothing saved yet — use <b>+ FILES</b> or paste a screenshot.</div>`;
+  else html += `<div class="col" style="margin-bottom:12px">`+D.files.map(f=>`
+    <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
+      ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
+      <span style="flex:1;min-width:0;font-size:12px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#475569;font-size:10px">(reference only — too big to store)</span>`:""}</span>
+      <span style="font-size:10px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
+      <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
+    </div>`).join("")+`</div>`;
+  // --- General links ---
+  html += `<div style="font-size:10px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">LINKS</div>`;
+  if (!D.links.length) html += `<div class="empty" style="padding:18px">No links yet — use <b>+ LINK</b>.</div>`;
+  else html += `<div class="col">`+D.links.map(l=>`
+    <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
+      <span>🔗</span>
+      <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:12px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
+      <button class="del-x" onclick="delDocLink('${biz}','links','${l.id}')">×</button>
+    </div>`).join("")+`</div>`;
+  return html;
+}
+async function connectDocsFolder(biz) {
+  if (!window.showDirectoryPicker) { ui.docStatus="Folder connect needs Chrome, Edge, or Brave."; render(); return; }
+  try {
+    const h = await window.showDirectoryPicker({ mode: "read" });
+    await idbSet("docs-"+biz, h);
+    _state.docs[biz].scan.folderName = h.name;
+    ui.docStatus = "Folder \""+h.name+"\" connected — click ⟳ UPDATE to pull the file list.";
+    commit(); return;
+  } catch(e) { if (e.name!=="AbortError") ui.docStatus="Couldn't connect folder: "+e.message; }
+  render();
+}
+async function scanDocs(biz) {
+  ui.docStatus = "Scanning…"; render();
+  try {
+    const h = await idbGet("docs-"+biz);
+    if (!h) { ui.docStatus="No folder connected yet — click ◇ CONNECT OBSIDIAN FOLDER first."; render(); return; }
+    let perm = await h.queryPermission({mode:"read"});
+    if (perm!=="granted") perm = await h.requestPermission({mode:"read"});
+    if (perm!=="granted") { ui.docStatus="Folder permission was denied."; render(); return; }
+    const files = [];
+    for await (const entry of h.values()) {
+      if (entry.kind!=="file") continue;
+      const f = await entry.getFile();
+      files.push({ name:f.name, size:f.size, mtime:f.lastModified });
+      if (files.length>=300) break;
+    }
+    files.sort((a,b)=>b.mtime-a.mtime);
+    _state.docs[biz].scan = { files, lastScan: Date.now(), folderName: h.name };
+    ui.docStatus = "✓ Pulled "+files.length+" file(s) from \""+h.name+"\"";
+    commit();
+  } catch(e) { ui.docStatus="Scan failed: "+e.message; render(); }
+}
+async function openScanFile(biz, idx) {
+  try {
+    const h = await idbGet("docs-"+biz);
+    const meta = _state.docs[biz].scan.files[idx];
+    const fh = await h.getFileHandle(meta.name);
+    const f = await fh.getFile();
+    window.open(URL.createObjectURL(f), "_blank");
+  } catch(e) { ui.docStatus="Couldn't open file: "+e.message; render(); }
+}
+function pickDocFiles(biz){ const i=document.getElementById("docFile"); i.dataset.biz=biz; i.click(); }
+function addDocFiles(fileList, biz) {
+  const files=[...fileList]; if(!files.length) return;
+  let pending=files.length;
+  files.forEach(f=>{
+    const entry={ id:uid("doc"), name:f.name||("screenshot-"+new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")+".png"),
+      type:f.type||"", size:f.size, ts:Date.now(), dataUri:null, ref:false };
+    if (f.size > 3*1048576) { entry.ref=true; _state.docs[biz].files.unshift(entry); if(--pending===0) finishDocAdd(biz,files.length); return; }
+    const r=new FileReader();
+    r.onload=()=>{ entry.dataUri=r.result; _state.docs[biz].files.unshift(entry); if(--pending===0) finishDocAdd(biz,files.length); };
+    r.readAsDataURL(f);
+  });
+}
+function finishDocAdd(biz,n){
+  try { save(); ui.docStatus="✓ Saved "+n+" file(s)."; }
+  catch(e){ ui.docStatus="Storage is full — file kept as reference only. Delete some saved files to free space."; }
+  render();
+}
+function delDocFile(biz,id){ _state.docs[biz].files=_state.docs[biz].files.filter(f=>f.id!==id); commit(); }
+function openSavedDoc(biz,id){
+  const f=_state.docs[biz].files.find(x=>x.id===id);
+  if(!f) return;
+  if(!f.dataUri){ ui.docStatus="\""+f.name+"\" was too big to store — it's listed as a reference only."; render(); return; }
+  fetch(f.dataUri).then(r=>r.blob()).then(b=>window.open(URL.createObjectURL(new Blob([b],{type:f.type||b.type})),"_blank"));
+}
+function addDocLink(biz){
+  const url=document.getElementById("dk-url").value.trim(); if(!url) return;
+  const label=document.getElementById("dk-label").value.trim();
+  const bucket=document.getElementById("dk-dnb").checked?"dnb":"links";
+  _state.docs[biz][bucket].push({ id:uid("lnk"), label, url: /^https?:\/\//i.test(url)?url:"https://"+url });
+  ui.showForm.dlink=false; commit();
+}
+function delDocLink(biz,bucket,id){ _state.docs[biz][bucket]=_state.docs[biz][bucket].filter(l=>l.id!==id); commit(); }
+
+// ---------- Logo upload ----------
+document.getElementById("headerLogo").addEventListener("click", ()=>document.getElementById("logoFile").click());
+document.getElementById("logoFile").addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ _state.logo=r.result; commit(); };
+  r.readAsDataURL(f);
+});
+document.getElementById("catFile").addEventListener("change", e=>{
+  const f=e.target.files[0], biz=e.target.dataset.biz||"centauri";
+  e.target.value=""; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try { applyCatalog(biz, JSON.parse(r.result), "file import"); }
+    catch(err){ ui.catStatus="Couldn't read that file as tracker JSON: "+err.message; render(); } };
+  r.readAsText(f);
+});
+document.getElementById("docFile").addEventListener("change", e=>{
+  const biz=e.target.dataset.biz||_state.activeBiz;
+  addDocFiles(e.target.files, biz); e.target.value="";
+});
+// paste a screenshot while on the Profile page → saved files
+document.addEventListener("paste", e=>{
+  if (_state.activeTab!=="profile") return;
+  const imgs=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith("image/"));
+  if (imgs.length) { e.preventDefault(); addDocFiles(imgs, _state.activeBiz); }
+});
+
+// ---------- Data backup: move your data between devices ----------
+function exportData(){
+  const blob = new Blob([JSON.stringify(_state,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "big-business-data-" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+}
+document.getElementById("dataFile").addEventListener("change", e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try {
+      const s=JSON.parse(r.result);
+      if(!s.projects || !s.profiles) throw new Error("not a Big Business backup");
+      if(!confirm("Replace ALL current data with this backup?")) return;
+      _state=s; migrate(); commit();
+      alert("Data imported.");
+    } catch(err){ alert("Couldn't import: "+err.message); }
+  };
+  r.readAsText(f);
+});
+
+// ---------- Boot ----------
+load();
+render();
+setTimeout(()=>{ const sp=document.getElementById("splash"); if(sp) sp.remove(); }, 2400);
+// v3 — products sync + keypr theme
+</script>
+</body>
+</html>
