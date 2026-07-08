@@ -151,6 +151,7 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
   <input type="file" id="logoFile" accept="image/*" style="display:none">
   <input type="file" id="catFile" accept=".json,application/json" style="display:none">
   <input type="file" id="docFile" multiple style="display:none">
+  <input type="file" id="afFile" accept="image/*,.pdf,application/pdf" style="display:none">
   <div class="biz-tabs" id="bizTabs"></div>
   <div class="sub-tabs" id="subTabs"></div>
   <div id="content"></div>
@@ -352,10 +353,19 @@ function migrate() { // add keys introduced after first release
   _state.catalog ||= { centauri: [], keypr: [] };
   _state.catalogMeta ||= {};
   _state.docs ||= {};
+  _state.bp ||= {};
   for (const b of ["centauri","keypr"]) {
     _state.catalog[b] ||= [];
     _state.catalogMeta[b] ||= { lastSync: null, source: "", srcUrl: "" };
     _state.docs[b] ||= { files: [], links: [], dnb: defaultDnb(), scan: { files: [], lastScan: null, folderName: "" } };
+    _state.bp[b] ||= {};
+    const old = _state.profiles && _state.profiles[b];
+    if (old) { // carry legacy profile values into the structured profile
+      const m = _state.bp[b];
+      m.legalName ||= old.legal || ""; m.brands ||= old.brands || "";
+      m.colors ||= old.colors || ""; m.notes ||= old.notes || "";
+      m.marketplaces ||= old.marketplaces || ""; m.keyIds ||= old.ids || "";
+    }
   }
 }
 function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(_state)); } catch(e) { console.error(e); } }
@@ -418,8 +428,8 @@ function renderSubTabs() {
     return `<button class="sub-tab ${s.activeTab===id?'active':''}" ${gold} onclick="setTab('${id}')">${label}</button>`;
   }).join("");
 }
-function setBiz(id){ _state.activeBiz = id; _state.activeTab = "profile"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; commit(); }
-function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; commit(); }
+function setBiz(id){ _state.activeBiz = id; _state.activeTab = "profile"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
+function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
 
 // ========== PROJECTS ==========
 function projStats(biz) {
@@ -923,38 +933,220 @@ function addNote(biz){
 }
 function delNote(id){ _state.notes=_state.notes.filter(n=>n.id!==id); commit(); }
 
-// ========== PROFILE ==========
-const PROFILE_FIELDS = [
-  ["legal","LEGAL NAME"],["brands","BRANDS"],["marketplaces","MARKETPLACES"],
-  ["ids","KEY IDS / SKUS"],["colors","BRAND COLORS"],["notes","NOTES"],
+// ========== PROFILE (structured business profile + autofill) ==========
+// Every value lives in THIS browser's storage only — nothing is uploaded anywhere.
+const BP_GROUPS = [
+  ["legal","LEGAL IDENTITY",[
+    ["legalName","Legal business name",["legal business name","legal name","entity name","name of entity"]],
+    ["dba","DBA / trade name",["doing business as","trade name","fictitious name","dba"]],
+    ["entityType","Entity type (LLC, Corp…)",["entity type","company type","type of entity"]],
+    ["stateFormation","State of formation",["state of formation","state of organization","formed in","jurisdiction"]],
+    ["stateRegNum","State registration / document #",["document number","registration number","filing number","file number"]],
+    ["formationDate","Formation date",["formation date","date of formation","date filed","effective date"]],
+    ["ein","EIN",["employer identification","federal tax id","fein","ein"]],
+    ["duns","D-U-N-S number",["d-u-n-s","duns"]],
+    ["naics","NAICS / SIC code",["naics","sic code"]],
+  ]],
+  ["agent","REGISTERED AGENT",[
+    ["agentName","Agent name",["registered agent name","registered agent"]],
+    ["agentAddress","Agent address",["agent address","registered office"]],
+  ]],
+  ["addr","ADDRESSES",[
+    ["principalAddr","Principal business address",["principal place of business","principal address","principal office","business address"]],
+    ["mailingAddr","Mailing address",["mailing address"]],
+    ["warehouseAddr","Physical / warehouse address",["warehouse address","physical address"]],
+  ]],
+  ["contact","CONTACT",[
+    ["phone","Business phone",["business phone","phone number","telephone","phone"]],
+    ["email","Business email",["business email","email address","e-mail","email"]],
+    ["website","Website / domain",["website","web site","domain","url"]],
+    ["custService","Customer service email / phone",["customer service","support email","support phone"]],
+  ]],
+  ["owner","OWNERSHIP & MANAGEMENT",[
+    ["owners","Owner(s) / officers & titles",["managing member","authorized member","officer name","owner name","president","member name"]],
+    ["ownershipPct","Ownership %",["ownership percentage","ownership %","percent owned"]],
+    ["ownerSsn","Owner SSN / ITIN",["social security","itin","ssn"]],
+    ["ownerDob","Owner DOB",["date of birth","birth date","dob"]],
+    ["ownerHomeAddr","Owner home address",["home address","residential address","residence address"]],
+  ]],
+  ["bank","BANKING & FINANCE",[
+    ["bankName","Business bank name",["bank name","banking institution"]],
+    ["acctRouting","Account & routing numbers",["routing number","account number","aba number"]],
+    ["creditCards","Business credit cards",["business credit card","credit card ending"]],
+    ["processors","Payment processors",["payment processor","stripe","paypal","square"]],
+    ["annualRevenue","Annual revenue estimate",["annual revenue","yearly revenue","gross annual","annual sales"]],
+    ["creditBureaus","Business credit bureaus (PAYDEX, Intelliscore…)",["paydex","intelliscore","credit bureau"]],
+  ]],
+  ["tax","TAX & COMPLIANCE",[
+    ["salesTaxPermit","Sales tax permit / resale certificate #",["sales tax permit","resale certificate","seller's permit","sales and use tax"]],
+    ["annualReportDue","Annual report due date",["annual report due","annual report"]],
+    ["licenses","Business licenses / permits",["business license","license number","permit number"]],
+    ["insurance","Insurance policies (GL, product liability) + #s",["policy number","general liability","insurance policy"]],
+  ]],
+  ["platform","PLATFORM / OPERATIONS",[
+    ["amazonId","Amazon Seller Central account ID",["seller central account","merchant token","amazon seller id"]],
+    ["walmartId","Walmart Seller ID",["walmart seller id","partner id"]],
+    ["gs1Prefix","GS1 / UPC prefix",["gs1 company prefix","upc prefix","gs1"]],
+    ["trademarks","Trademark registration #s",["trademark registration","registration no","serial no"]],
+    ["brandRegistry","Brand registry status",["brand registry"]],
+    ["marketplaces","Marketplaces",["marketplace"]],
+    ["keyIds","Key IDs / SKUs",[]],
+  ]],
+  ["digital","DIGITAL ASSETS",[
+    ["domainRegistrar","Domain registrar & renewal date",["registrar","godaddy","namecheap","renewal date"]],
+    ["hostingProvider","Hosting provider",["hosting provider","hosted by","hosting"]],
+    ["loginsLocation","Key logins location (password manager ref)",["password manager","1password","bitwarden","lastpass"]],
+  ]],
+  ["brand","BRAND & NOTES",[
+    ["brands","Brands",[]],
+    ["colors","Brand colors",[]],
+    ["notes","Notes",[]],
+  ]],
 ];
+const BP_RX = {
+  ein: [/\b\d{2}-\d{7}\b/, /ein|employer identification|federal tax/i],
+  duns: [/\b\d{2}-?\d{3}-?\d{4}\b/, /d.?u.?n.?s/i],
+  ownerSsn: [/\b\d{3}-\d{2}-\d{4}\b/, /ssn|social security|itin/i],
+  phone: [/(\+?1[ .\-]?)?\(?\d{3}\)?[ .\-]?\d{3}[ .\-]?\d{4}/, /phone|tel/i],
+  email: [/[\w.+\-]+@[\w\-]+\.[\w.]{2,}/, null],
+  website: [/(?:https?:\/\/)?(?:www\.)?[\w\-]+\.(?:com|net|org|io|co|us|shop|store)\b[^\s,;]*/i, /website|domain|url|www|http/i],
+  naics: [/\b\d{4,6}\b/, /naics|sic/i],
+  formationDate: [/\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2},? \d{4})\b/i, /formation|formed|filed|effective|organiz/i],
+};
+function bpAllFields(){ return BP_GROUPS.flatMap(([g,t,fs])=>fs.map(([k,label,kws])=>({k,label,kws:kws||[]}))); }
+function parseAutofill(text){
+  const lines = text.split(/\r?\n/).map(l=>l.replace(/\s+/g," ").trim()).filter(Boolean);
+  const found = [];
+  for (const f of bpAllFields()){
+    let val = null;
+    for (let i=0; i<lines.length && !val; i++){
+      const low = lines[i].toLowerCase();
+      for (const kw of f.kws){
+        const idx = low.indexOf(kw);
+        if (idx < 0) continue;
+        let rest = lines[i].slice(idx+kw.length).replace(/^[\s:#.\-–—]*/,"").trim();
+        if (rest.length >= 2) val = rest;
+        else if (lines[i+1] && lines[i+1].length < 90 && !/:\s*$/.test(lines[i+1])) val = lines[i+1];
+        if (val) break;
+      }
+    }
+    if (!val && BP_RX[f.k]){
+      const [rx, ctx] = BP_RX[f.k];
+      for (const l of lines){
+        if (ctx && !ctx.test(l)) continue;
+        const m = l.match(rx);
+        if (m){ val = m[0]; break; }
+      }
+    }
+    if (val) found.push({ k:f.k, label:f.label, value: val.slice(0,220) });
+  }
+  return found;
+}
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    if (document.querySelector(`script[src="${src}"]`)) return res();
+    const s = document.createElement("script"); s.src = src;
+    s.onload = res; s.onerror = ()=>rej(new Error("couldn't load " + src.split("/").pop() + " (check internet)"));
+    document.head.appendChild(s);
+  });
+}
+const TESS_URL = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
+const PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+function pickAutofill(biz){ const i=document.getElementById("afFile"); i.dataset.biz=biz; i.click(); }
+async function runAutofill(file, biz){
+  try {
+    ui.afResults = null;
+    let text = "";
+    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)){
+      ui.afStatus = "Extracting text from PDF…"; render();
+      await loadScript(PDFJS_URL);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      const n = Math.min(pdf.numPages, 8);
+      for (let p=1; p<=n; p++){
+        const tc = await (await pdf.getPage(p)).getTextContent();
+        text += tc.items.map(i=>i.str).join("\n") + "\n";
+      }
+      if (text.trim().length < 40){
+        ui.afStatus = "That PDF is a scan with no selectable text — screenshot it and autofill from the image instead."; render(); return;
+      }
+    } else {
+      ui.afStatus = "Reading the image with OCR — takes 10–30 seconds, runs entirely in your browser…"; render();
+      await loadScript(TESS_URL);
+      const res = await Tesseract.recognize(file, "eng");
+      text = res.data.text || "";
+    }
+    const items = parseAutofill(text);
+    if (!items.length){ ui.afStatus = "Couldn't confidently match any fields — try a clearer screenshot or a text PDF."; render(); return; }
+    ui.afStatus = null;
+    ui.afResults = { biz, items };
+    render();
+  } catch(e){ ui.afStatus = "Autofill failed: " + e.message; render(); }
+}
+function applyAutofill(){
+  const { biz, items } = ui.afResults;
+  let n = 0;
+  items.forEach((it,i)=>{
+    if (!document.getElementById("af-c-"+i).checked) return;
+    const v = document.getElementById("af-v-"+i).value.trim();
+    if (v){ _state.bp[biz][it.k] = v; n++; }
+  });
+  ui.afResults = null;
+  ui.afStatus = "✓ Filled " + n + " field(s).";
+  commit();
+}
 function rProfile(biz) {
-  const p=_state.profiles[biz];
+  const bp = _state.bp[biz];
   let html = `<div class="section-title">BUSINESS PROFILE — ${BIZ[biz].name}</div>`;
   if (biz==="keypr") html += `<div style="width:290px;margin:0 auto 14px">${keyprLogoSVG()}</div>`;
   if (biz==="centauri") html += `<div style="width:290px;margin:0 auto 14px">${centauriLogoSVG()}</div>`;
-  if (ui.showForm.prof) {
-    html += `<div class="form-panel">` + PROFILE_FIELDS.map(([k,l])=>`
-      <div><div style="font-size:10px;color:var(--muted);letter-spacing:0.15em;margin-bottom:4px">${l}</div>
-      ${k==="notes"||k==="colors"?`<textarea id="pf-${k}" rows="2">${esc(p[k])}</textarea>`:`<input id="pf-${k}" value="${esc(p[k])}">`}</div>`).join("") + `
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="saveProfile('${biz}')">SAVE PROFILE</button>
-      <button class="btn btn-ghost" onclick="ui.showForm.prof=false;render()">CANCEL</button></div></div>`;
-    return html;
+  html += `<button class="btn btn-red" style="width:100%;margin-bottom:8px" onclick="pickAutofill('${biz}')">⚡ AUTOFILL FROM SCREENSHOT / PDF</button>
+  <div style="font-size:10px;color:#334155;margin-bottom:12px;text-align:center">OCR runs locally in your browser — the file is never uploaded. You review every value before it saves. 🔒 All profile data stays on this device.</div>`;
+  if (ui.afStatus) html += `<div style="font-size:11px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  if (ui.afResults && ui.afResults.biz===biz) {
+    html += `<div class="form-panel">
+      <div style="font-size:10px;letter-spacing:0.2em;color:var(--accent)">REVIEW AUTOFILL — ${ui.afResults.items.length} MATCH(ES). UNCHECK ANYTHING WRONG.</div>` +
+      ui.afResults.items.map((it,i)=>`
+      <div style="display:flex;gap:8px;align-items:center">
+        <input type="checkbox" id="af-c-${i}" ${bp[it.k]?"":"checked"} style="width:auto;flex-shrink:0">
+        <div style="width:170px;flex-shrink:0;font-size:10px;color:var(--muted)">${it.label}${bp[it.k]?` <span style="color:var(--amber)">(overwrites)</span>`:""}</div>
+        <input id="af-v-${i}" value="${esc(it.value)}" style="flex:1">
+      </div>`).join("") + `
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="applyAutofill()">APPLY CHECKED</button>
+      <button class="btn btn-ghost" onclick="ui.afResults=null;render()">DISMISS</button></div></div>`;
   }
-  html += `<div class="card" style="padding:18px;border-top:2px solid ${BIZ[biz].accent}">` +
-    PROFILE_FIELDS.map(([k,l])=>`
-      <div style="margin-bottom:14px">
-        <div style="font-size:10px;color:var(--faint);letter-spacing:0.15em;margin-bottom:4px">${l}</div>
-        <div style="font-size:13px;color:${p[k]?'#e2e8f0':'#334155'};white-space:pre-wrap">${esc(p[k])||"—"}</div>
-      </div>`).join("") +
-    `<button class="btn btn-ghost" onclick="ui.showForm.prof=true;render()">✎ EDIT PROFILE</button>
-  </div>`;
+  for (const [gid, title, fields] of BP_GROUPS) {
+    const filled = fields.filter(([k])=>bp[k]).length;
+    const editing = ui.editGroup === gid;
+    html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled?`border-left:3px solid ${BIZ[biz].accent};`:""}">
+      <div style="display:flex;align-items:center;gap:8px;${editing||filled?"margin-bottom:10px;":""}">
+        <div style="font-size:10px;letter-spacing:0.22em;color:var(--accent)">${title}</div>
+        <span class="chip" style="background:rgba(255,255,255,0.05);color:${filled===fields.length?"var(--green)":"var(--muted)"};border:1px solid rgba(255,255,255,0.1)">${filled}/${fields.length}</span>
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:9px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
+      </div>`;
+    if (editing) {
+      html += `<div class="col">` + fields.map(([k,label])=>`
+        <div><div style="font-size:10px;color:var(--muted);letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
+        <input id="bp-${k}" value="${esc(bp[k]||"")}"></div>`).join("") + `
+        <button class="btn btn-red" onclick="saveBpGroup('${biz}','${gid}')">SAVE ${title}</button>
+      </div>`;
+    } else if (filled) {
+      html += fields.filter(([k])=>bp[k]).map(([k,label])=>`
+        <div style="margin-bottom:9px">
+          <div style="font-size:10px;color:var(--faint);letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
+          <div style="font-size:13px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${esc(bp[k])}</div>
+        </div>`).join("");
+    }
+    html += `</div>`;
+  }
   html += rDocs(biz);
   return html;
 }
-function saveProfile(biz){
-  PROFILE_FIELDS.forEach(([k])=>{ _state.profiles[biz][k]=document.getElementById("pf-"+k).value.trim(); });
-  ui.showForm.prof=false; commit();
+function saveBpGroup(biz, gid){
+  const fields = BP_GROUPS.find(([g])=>g===gid)[2];
+  fields.forEach(([k])=>{ _state.bp[biz][k] = document.getElementById("bp-"+k).value.trim(); });
+  ui.editGroup = null; commit();
 }
 
 // ========== BUSINESS DOCUMENTS (per business) ==========
@@ -1173,6 +1365,13 @@ document.addEventListener("paste", e=>{
   if (_state.activeTab!=="profile") return;
   const imgs=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith("image/"));
   if (imgs.length) { e.preventDefault(); addDocFiles(imgs, _state.activeBiz); }
+});
+
+// ---------- Autofill file picker ----------
+document.getElementById("afFile").addEventListener("change", e=>{
+  const f=e.target.files[0], biz=e.target.dataset.biz||_state.activeBiz;
+  e.target.value=""; if(!f) return;
+  runAutofill(f, biz);
 });
 
 // ---------- Background image (corner control) ----------
