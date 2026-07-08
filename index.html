@@ -1004,42 +1004,164 @@ const BP_GROUPS = [
   ]],
 ];
 const BP_RX = {
-  ein: [/\b\d{2}-\d{7}\b/, /ein|employer identification|federal tax/i],
-  duns: [/\b\d{2}-?\d{3}-?\d{4}\b/, /d.?u.?n.?s/i],
+  ein: [/\b\d{2}-\d{7}\b/, /ein|employer identification|federal tax|tax id/i],
+  duns: [/\b\d{2}-?\d{3}-?\d{4}\b/, /d.?u.?n.?s|d&b/i],
   ownerSsn: [/\b\d{3}-\d{2}-\d{4}\b/, /ssn|social security|itin/i],
-  phone: [/(\+?1[ .\-]?)?\(?\d{3}\)?[ .\-]?\d{3}[ .\-]?\d{4}/, /phone|tel/i],
+  phone: [/(\+?1[ .\-]?)?\(?\d{3}\)?[ .\-]?\d{3}[ .\-]?\d{4}/, /phone|tel|call|contact/i],
   email: [/[\w.+\-]+@[\w\-]+\.[\w.]{2,}/, null],
   website: [/(?:https?:\/\/)?(?:www\.)?[\w\-]+\.(?:com|net|org|io|co|us|shop|store)\b[^\s,;]*/i, /website|domain|url|www|http/i],
   naics: [/\b\d{4,6}\b/, /naics|sic/i],
-  formationDate: [/\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2},? \d{4})\b/i, /formation|formed|filed|effective|organiz/i],
+  formationDate: [/\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2},? \d{4})\b/i, /formation|formed|filed|effective|organiz|incorporat/i],
+  ownerDob: [/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/, /birth|dob|born/i],
+  amazonId: [/\bA[0-9A-Z]{12,13}\b/, /amazon|merchant|seller/i],
+  gs1Prefix: [/\b0\d{5,9}\b/, /gs1|prefix|upc/i],
+  trademarks: [/\b\d{7}\b/, /trademark|uspto|registration no|reg\. no|serial/i],
+  salesTaxPermit: [/\b(?=[A-Z0-9\-]*\d{4})[A-Z0-9\-]{6,15}\b/, /resale|sales tax|seller'?s permit/i],
 };
-function bpAllFields(){ return BP_GROUPS.flatMap(([g,t,fs])=>fs.map(([k,label,kws])=>({k,label,kws:kws||[]}))); }
+// extra label aliases the parser also recognizes (beyond each field's built-in keywords)
+const BP_KW_EXTRA = {
+  legalName: ["company name","corporation name","name of llc","llc name","name of business","registered name","business legal name","name of the company","limited liability company name"],
+  dba: ["also known as","a/k/a","aka"],
+  entityType: ["business type","organization type","business structure","type of business"],
+  stateFormation: ["organized under the laws of","state of incorporation","formed under","domicile state","incorporated in"],
+  stateRegNum: ["document no","doc number","entity number","charter number","control number","sos number","state id number","filing no"],
+  formationDate: ["filed on","incorporation date","date organized","date incorporated","registered on","date of organization"],
+  ein: ["ein number","tax id number","taxpayer identification","federal ein","fed tax id","irs number"],
+  duns: ["duns number","d&b number","dnb number"],
+  naics: ["naics code","industry code","sic number"],
+  agentName: ["name of registered agent","statutory agent"],
+  agentAddress: ["address of the registered agent","address of registered agent","statutory agent address"],
+  principalAddr: ["principal office address","main business address","street address of principal","address of principal office","principal office"],
+  mailingAddr: ["mail address","p.o. box","po box"],
+  warehouseAddr: ["fulfillment address","shipping address"],
+  phone: ["contact number","phone no","business tel","daytime phone","mobile number","cell phone"],
+  email: ["contact email","business e-mail"],
+  website: ["homepage","web address","site url"],
+  custService: ["customer support","cs email","cs phone"],
+  owners: ["authorized person","manager name","managing members","member/manager","officers and directors","authorized representative","principal name"],
+  ownershipPct: ["% ownership","percentage of ownership","equity share","% owned"],
+  ownerSsn: ["ssn/itin","social security no"],
+  ownerDob: ["birthdate"],
+  ownerHomeAddr: ["owner address","personal address"],
+  bankName: ["financial institution","name of bank","depository"],
+  acctRouting: ["acct number","checking account","account no","routing no","aba routing"],
+  creditCards: ["card ending in","credit line"],
+  processors: ["merchant account","payment gateway"],
+  annualRevenue: ["gross revenue","projected revenue","estimated annual","annual gross sales"],
+  creditBureaus: ["paydex score","business credit score","experian business"],
+  salesTaxPermit: ["resale number","tax permit number","certificate of registration","seller permit"],
+  annualReportDue: ["report due date","next annual report"],
+  licenses: ["license no","permit no","local business tax"],
+  insurance: ["insurer","policy no","coverage amount","certificate of insurance"],
+  amazonId: ["merchant id","merchant token","amazon account id"],
+  walmartId: ["walmart account","supplier id","seller center id"],
+  gs1Prefix: ["company prefix","upc company prefix"],
+  trademarks: ["uspto reg","registration number","serial number"],
+  brandRegistry: ["registry status","brand registered"],
+  domainRegistrar: ["domain registered with","registrar name","domain expires"],
+  hostingProvider: ["hosted on","hosting company","server provider"],
+  loginsLocation: ["credentials stored","passwords stored","vault"],
+};
+const BP_STATES = "alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming";
+const BP_CITYZIP = /[A-Za-z .'\-]+,?\s+[A-Z]{2},?\s+\d{5}(?:-\d{4})?/;
+const BP_STREET = /\d{1,6}\s+[\w.#' ]{3,40}\b(?:street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|court|ct|way|terrace|ter|circle|cir|place|pl|parkway|pkwy|highway|hwy)\b/i;
+function bpAllFields(){ return BP_GROUPS.flatMap(([g,t,fs])=>fs.map(([k,label,kws])=>({k,label,kws:(kws||[]).concat(BP_KW_EXTRA[k]||[])}))); }
 function parseAutofill(text){
-  const lines = text.split(/\r?\n/).map(l=>l.replace(/\s+/g," ").trim()).filter(Boolean);
-  const found = [];
-  for (const f of bpAllFields()){
-    let val = null;
-    for (let i=0; i<lines.length && !val; i++){
-      const low = lines[i].toLowerCase();
+  const lines = text.split(/\r?\n/).map(l=>l.replace(/[|•·]+/g," ").replace(/_{3,}/g," ").replace(/\s+/g," ").trim()).filter(l=>l.length>1);
+  const fields = bpAllFields();
+  const best = {};
+  const isAddr = k=>/Addr$/.test(k)||k==="agentAddress";
+  const clean = v=>(v||"").replace(/^[\s:#.,\-–—]+/,"").replace(/[\s;,]+$/,"").trim();
+  const strip = v=>{
+    v = clean(v);
+    v = v.replace(/^(number|no\.?|num|#)[:. ]+/i,"").replace(/^(is|are|shall be)\b[: ]*/i,"");
+    v = v.replace(/^[\s:#.,\-–—]+/,"").trim();
+    if (/^(is|are|the|of|and|as follows)[.:]?$/i.test(v)) return "";
+    return v;
+  };
+  const put = (k,v,score)=>{ v=strip(v); if(v.length<2) return; if(!best[k]||score>best[k].score) best[k]={v:v.slice(0,220),score}; };
+  const grabAddr = (k,startVal,idx,score)=>{
+    let v = strip(startVal);
+    if (v && !/\d/.test(v)) v = ""; // label remnants like "of the company is:" aren't addresses
+    if (v && !BP_CITYZIP.test(v) && lines[idx+1] && BP_CITYZIP.test(lines[idx+1])) v += ", "+lines[idx+1];
+    if (!v){
+      for (let j=idx+1; j<=idx+3 && j<lines.length; j++){
+        if (BP_STREET.test(lines[j]) || BP_CITYZIP.test(lines[j])){
+          v = lines[j];
+          if (lines[j+1] && BP_CITYZIP.test(lines[j+1]) && !BP_CITYZIP.test(v)) v += ", "+lines[j+1];
+          break;
+        }
+      }
+    }
+    put(k, v, score);
+  };
+  // PASS 1 — keyword / label scan (value inline after label, or on the next line)
+  for (let i=0; i<lines.length; i++){
+    const low = lines[i].toLowerCase();
+    for (const f of fields){
       for (const kw of f.kws){
-        const idx = low.indexOf(kw);
-        if (idx < 0) continue;
-        let rest = lines[i].slice(idx+kw.length).replace(/^[\s:#.\-–—]*/,"").trim();
-        if (rest.length >= 2) val = rest;
-        else if (lines[i+1] && lines[i+1].length < 90 && !/:\s*$/.test(lines[i+1])) val = lines[i+1];
-        if (val) break;
+        const at = low.indexOf(kw);
+        if (at < 0) continue;
+        if (at > 0 && /[a-z0-9]/.test(low[at-1])) continue; // keyword must start at a word boundary
+        const rest = strip(lines[i].slice(at+kw.length));
+        if (isAddr(f.k)) { grabAddr(f.k, rest, i, 3); break; }
+        if (rest.length >= 2) put(f.k, rest, 3);
+        else if (lines[i+1] && lines[i+1].length <= 120 && !/[:：]\s*$/.test(lines[i+1])) put(f.k, lines[i+1], 2);
+        break;
       }
     }
-    if (!val && BP_RX[f.k]){
-      const [rx, ctx] = BP_RX[f.k];
-      for (const l of lines){
-        if (ctx && !ctx.test(l)) continue;
-        const m = l.match(rx);
-        if (m){ val = m[0]; break; }
-      }
-    }
-    if (val) found.push({ k:f.k, label:f.label, value: val.slice(0,220) });
   }
+  // PASS 2 — pattern scan with context checked in a ±1 line window
+  for (const [k, pair] of Object.entries(BP_RX)){
+    if (best[k] && best[k].score >= 2) continue;
+    const rx = pair[0], ctx = pair[1];
+    for (let i=0; i<lines.length; i++){
+      const win = (lines[i-1]||"")+" "+lines[i]+" "+(lines[i+1]||"");
+      if (ctx && !ctx.test(win)) continue;
+      const m = lines[i].match(rx);
+      if (m){ put(k, m[0], 1); break; }
+    }
+  }
+  // PASS 3 — smart derivations for things documents rarely label
+  if (!best.legalName){
+    const m = lines.find(l=>l.length<70 && /^[A-Z0-9][\w .,&'()\-]{2,60}\b(LLC|L\.L\.C\.?|INC\.?|CORP\.?|CORPORATION|COMPANY|CO\.)\s*$/i.test(l));
+    if (m) put("legalName", m, 1);
+  }
+  if (!best.entityType){
+    const t = text.toLowerCase();
+    if (/limited liability company|\bl\.?l\.?c\b/.test(t)) put("entityType","LLC",1);
+    else if (/\bcorporation\b|\bincorporated\b|\binc\b/.test(t)) put("entityType","Corporation",1);
+    else if (/sole proprietor/.test(t)) put("entityType","Sole Proprietorship",1);
+    else if (/\bpartnership\b/.test(t)) put("entityType","Partnership",1);
+  }
+  if (!best.stateFormation){
+    let m = text.match(new RegExp("(?:state of|laws of(?: the state of)?|organized in|formed in|incorporated in)\\s+("+BP_STATES+")","i"));
+    if (!m) m = text.match(new RegExp("\\b("+BP_STATES+")\\b(?=\\s+(?:limited liability|llc|corporation|inc\\b|profit corporation))","i"));
+    if (m) put("stateFormation", m[1].replace(/\b\w/g,c=>c.toUpperCase()), 1);
+  }
+  if (!best.ein){
+    const m = text.match(/\b(\d{2})\s*[- ]\s*(\d{7})\b/);
+    if (m && /ein|tax|employer/i.test(text)) put("ein", m[1]+"-"+m[2], 1);
+  }
+  if (!best.stateRegNum){
+    const m = text.match(/\b[A-Z]\d{11,}\b|\b[A-Z]{1,3}\d{8,12}\b/);
+    if (m && /document|filing|filed|registration|articles|entity|charter/i.test(text)) put("stateRegNum", m[0], 1);
+  }
+  { // pair routing + account when both appear (beats single-value keyword grabs)
+    const r = text.match(/routing[^\d]{0,14}(\d{9})\b/i), a = text.match(/account[^\d]{0,14}(\d{6,17})\b/i);
+    if (r || a) put("acctRouting", [r&&("Routing "+r[1]), a&&("Account "+a[1])].filter(Boolean).join(" · "), 4);
+  }
+  if (!best.principalAddr){
+    const idx = lines.findIndex(l=>BP_STREET.test(l));
+    if (idx>=0){
+      let v = lines[idx];
+      if (lines[idx+1] && BP_CITYZIP.test(lines[idx+1]) && !BP_CITYZIP.test(v)) v += ", "+lines[idx+1];
+      put("principalAddr", v, 0.5);
+    }
+  }
+  // ordered results
+  const found = [];
+  for (const f of fields){ if (best[f.k]) found.push({ k:f.k, label:f.label, value:best[f.k].v }); }
   return found;
 }
 function loadScript(src){
