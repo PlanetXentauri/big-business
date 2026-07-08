@@ -207,8 +207,8 @@ const BIZ = {
   keypr:    { name: "KEYPR ON COMPANY",  short: "Keypr",    accent: "#1fd3ee" },
 };
 const TABS = [
-  ["projects","PROJECTS"],["catalog","PRODUCTS"],["financials","FINANCIALS"],["deadlines","DEADLINES"],
-  ["contacts","CONTACTS"],["notes","NOTES"],["profile","PROFILE"],
+  ["profile","PROFILE"],["projects","PROJECTS"],["catalog","PRODUCTS"],["financials","FINANCIALS"],
+  ["deadlines","DEADLINES"],["contacts","CONTACTS"],["notes","NOTES"],
 ];
 
 // ---------- Keypr On wordmark (logo colors: neon cyan + red) ----------
@@ -402,9 +402,12 @@ function renderBizTabs() {
 }
 function renderSubTabs() {
   const s = _state;
-  document.getElementById("subTabs").innerHTML = TABS.map(([id,label]) =>
-    `<button class="sub-tab ${s.activeTab===id?'active':''}" onclick="setTab('${id}')">${label}</button>`
-  ).join("");
+  document.getElementById("subTabs").innerHTML = TABS.map(([id,label]) => {
+    const gold = id==="profile"
+      ? `style="border-color:var(--gold);color:var(--gold);${s.activeTab===id?'background:var(--gold-dim);font-weight:700;':''}"`
+      : "";
+    return `<button class="sub-tab ${s.activeTab===id?'active':''}" ${gold} onclick="setTab('${id}')">${label}</button>`;
+  }).join("");
 }
 function setBiz(id){ _state.activeBiz = id; commit(); }
 function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; commit(); }
