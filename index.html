@@ -374,7 +374,7 @@ function commit() { save(); render(); }
 const uid = p => p + "-" + Date.now() + "-" + Math.floor(Math.random()*1000);
 
 // UI-only flags (not persisted)
-let ui = { showNewProject:false, addStepFor:null, showForm:{}, contactTab:"list", editProd:null, catStatus:"" };
+let ui = { showNewProject:false, addStepFor:null, showForm:{}, contactTab:"list", editProd:null, catStatus:"", docOpen:{} };
 
 // ---------- Renderers ----------
 function render() {
@@ -1208,6 +1208,9 @@ async function runAutofill(file, biz){
       if (text.trim().length < 40){
         ui.afStatus = "That PDF is a scan with no selectable text — screenshot it and autofill from the image instead."; render(); return;
       }
+    } else if (/\.(md|txt|csv|json|text)$/i.test(file.name||"") || (file.type && file.type.startsWith("text/"))){
+      ui.afStatus = "Reading text file…"; render();
+      text = await file.text();
     } else {
       ui.afStatus = "Reading the image with OCR — takes 10–30 seconds, runs entirely in your browser…"; render();
       await loadScript(TESS_URL);
@@ -1256,6 +1259,7 @@ function rProfile(biz) {
       <div class="row"><button class="btn btn-red" style="flex:1" onclick="applyAutofill()">✅ APPLY CHECKED</button>
       <button class="btn btn-ghost" onclick="ui.afResults=null;render()">DISMISS</button></div></div>`;
   }
+  html += rDocs(biz);
   for (const [gid, title, fields] of BP_GROUPS) {
     const filled = fields.filter(([k])=>bp[k]).length;
     const editing = ui.editGroup === gid;
@@ -1280,7 +1284,6 @@ function rProfile(biz) {
     }
     html += `</div>`;
   }
-  html += rDocs(biz);
   return html;
 }
 function saveBpGroup(biz, gid){
@@ -1343,6 +1346,13 @@ function centauriLogoSVG() {
       textLength="100" lengthAdjust="spacingAndGlyphs" fill="#C4993A">LLC</text>
   </svg>`;
 }
+function docSecHdr(id, title, count, open){
+  return `<div onclick="ui.docOpen.${id}=!ui.docOpen.${id};render()" style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:10px">
+    <span style="display:inline-block;transform:rotate(${open?90:0}deg);transition:transform .2s;color:var(--accent);font-size:13px">▶</span>
+    <span style="font-size:12px;letter-spacing:0.2em;color:#94a3b8;font-weight:700">${title}</span>
+    <span class="chip" style="margin-left:auto;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-brd)">${count}</span>
+  </div>`;
+}
 function rDocs(biz) {
   const D=_state.docs[biz], scan=D.scan||{files:[]};
   let html = `<div class="section-title" style="margin-top:26px">📂 BUSINESS DOCUMENTS — ${BIZ[biz].name}</div>
@@ -1375,19 +1385,21 @@ function rDocs(biz) {
       </div>`).join("")+`</div>` : `<div style="font-size:13px;color:#475569">No D&amp;B links yet — use + LINK and check the D&amp;B box.</div>`}
   </div>`;
   // --- Obsidian folder files ---
-  html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">📁 OBSIDIAN FOLDER${scan.folderName?` — ${esc(scan.folderName.toUpperCase())}`:""}${scan.lastScan?` · UPDATED ${fmtTs(scan.lastScan).toUpperCase()}`:""}</div>`;
-  if (!scan.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No folder connected yet. Click <b>📂 CONNECT OBSIDIAN FOLDER</b> (Chrome/Edge/Brave), then <b>🔄 UPDATE</b> pulls the file list — and re-pulls it any time.</div>`;
-  else html += `<div class="col" style="margin-bottom:12px">`+scan.files.map((f,i)=>`
+  html += docSecHdr("obs", `📁 OBSIDIAN FOLDER${scan.folderName?` — ${esc(scan.folderName.toUpperCase())}`:""}`, scan.files.length, !!ui.docOpen.obs);
+  if (ui.docOpen.obs && !scan.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No folder connected yet. Click <b>📂 CONNECT OBSIDIAN FOLDER</b> (Chrome/Edge/Brave), then <b>🔄 UPDATE</b> pulls the file list — and re-pulls it any time. Click a file to open it, or 🪄 to autofill from it.</div>`;
+  else if (ui.docOpen.obs) html += `<div class="col" style="margin-bottom:12px">`+scan.files.map((f,i)=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center;cursor:pointer" onclick="openScanFile('${biz}',${i})" title="Click to open">
       <span>${fileIcon(f.name)}</span>
       <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
       <span style="font-size:12px;color:#475569;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.mtime)}</span>
+      <button class="del-x" style="opacity:0.85;font-size:16px" title="Sync this file into autofill" onclick="event.stopPropagation();autofillFromScan('${biz}',${i})">🪄</button>
     </div>`).join("")+`</div>`;
   // --- Saved files & screenshots ---
   const afF = D.files.filter(f=>f.af), otherF = D.files.filter(f=>!f.af);
-  if (afF.length){
-    html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">🪄 AUTOFILL UPLOADS</div>
-    <div class="col" style="margin-bottom:12px">`+afF.map(f=>`
+  html += docSecHdr("afu", "🪄 AUTOFILL UPLOADS", afF.length, !!ui.docOpen.afu);
+  if (ui.docOpen.afu && !afF.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No autofill uploads yet — every photo or PDF you run through autofill lands here automatically.</div>`;
+  if (ui.docOpen.afu && afF.length){
+    html += `<div class="col" style="margin-bottom:12px">`+afF.map(f=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
       ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
       <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#475569;font-size:12px">(reference only — too big to store)</span>`:""}</span>
@@ -1395,9 +1407,9 @@ function rDocs(biz) {
       <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
     </div>`).join("")+`</div>`;
   }
-  html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">💾 SAVED FILES &amp; SCREENSHOTS</div>`;
-  if (!otherF.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">Nothing saved yet — use <b>+ FILES</b> or paste a screenshot.</div>`;
-  else html += `<div class="col" style="margin-bottom:12px">`+otherF.map(f=>`
+  html += docSecHdr("sav", "💾 SAVED FILES &amp; SCREENSHOTS", otherF.length, !!ui.docOpen.sav);
+  if (ui.docOpen.sav && !otherF.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">Nothing saved yet — use <b>📎 FILES</b> or paste a screenshot.</div>`;
+  else if (ui.docOpen.sav) html += `<div class="col" style="margin-bottom:12px">`+otherF.map(f=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
       ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
       <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#475569;font-size:12px">(reference only — too big to store)</span>`:""}</span>
@@ -1405,9 +1417,9 @@ function rDocs(biz) {
       <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
     </div>`).join("")+`</div>`;
   // --- General links ---
-  html += `<div style="font-size:12px;letter-spacing:0.2em;color:var(--muted);margin-bottom:8px">🔗 LINKS</div>`;
-  if (!D.links.length) html += `<div class="empty" style="padding:18px">No links yet — use <b>+ LINK</b>.</div>`;
-  else html += `<div class="col">`+D.links.map(l=>`
+  html += docSecHdr("lnk", "🔗 LINKS", D.links.length, !!ui.docOpen.lnk);
+  if (ui.docOpen.lnk && !D.links.length) html += `<div class="empty" style="padding:18px">No links yet — use <b>🔗 LINK</b>.</div>`;
+  else if (ui.docOpen.lnk) html += `<div class="col">`+D.links.map(l=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
       <span>🔗</span>
       <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:14px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
@@ -1455,6 +1467,14 @@ async function openScanFile(biz, idx) {
     const f = await fh.getFile();
     window.open(URL.createObjectURL(f), "_blank");
   } catch(e) { ui.docStatus="Couldn't open file: "+e.message; render(); }
+}
+async function autofillFromScan(biz, idx){
+  try {
+    const h = await idbGet("docs-"+biz);
+    const meta = _state.docs[biz].scan.files[idx];
+    const f = await (await h.getFileHandle(meta.name)).getFile();
+    runAutofill(f, biz);
+  } catch(e){ ui.docStatus = "Couldn't read that file: " + e.message; render(); }
 }
 function pickDocFiles(biz){ const i=document.getElementById("docFile"); i.dataset.biz=biz; i.click(); }
 function addDocFiles(fileList, biz) {
