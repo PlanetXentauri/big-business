@@ -409,7 +409,7 @@ function renderSubTabs() {
     return `<button class="sub-tab ${s.activeTab===id?'active':''}" ${gold} onclick="setTab('${id}')">${label}</button>`;
   }).join("");
 }
-function setBiz(id){ _state.activeBiz = id; commit(); }
+function setBiz(id){ _state.activeBiz = id; _state.activeTab = "profile"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; commit(); }
 function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; commit(); }
 
 // ========== PROJECTS ==========
