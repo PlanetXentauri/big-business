@@ -741,7 +741,7 @@ function rFinancials(biz) {
     const editing = ui.editGroup === "fin-"+gid;
     html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled?`border-left:3px solid ${BIZ[biz].accent};`:""}">
       <div style="display:flex;align-items:center;gap:8px;${editing||filled?"margin-bottom:10px;":""}">
-        <div style="font-size:12px;letter-spacing:0.22em;color:var(--accent);font-weight:700">${title}</div>
+        <div style="font-size:12px;letter-spacing:0.22em;font-weight:800;color:${biz==="centauri"?"#1A6AE8":"var(--accent)"}">${title}</div>
         <span class="chip" style="background:rgba(255,255,255,0.05);color:${filled===fields.length?"var(--green)":"var(--muted)"};border:1px solid rgba(255,255,255,0.1)">${filled}/${fields.length}</span>
         <button class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'fin-${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
       </div>`;
@@ -1371,7 +1371,7 @@ function rProfile(biz) {
     const editing = ui.editGroup === gid;
     html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled?`border-left:3px solid ${BIZ[biz].accent};`:""}">
       <div style="display:flex;align-items:center;gap:8px;${editing||filled?"margin-bottom:10px;":""}">
-        <div style="font-size:12px;letter-spacing:0.22em;color:var(--accent)">${title}</div>
+        <div style="font-size:12px;letter-spacing:0.22em;font-weight:800;color:${biz==="centauri"?"#1A6AE8":"var(--accent)"}">${title}</div>
         <span class="chip" style="background:rgba(255,255,255,0.05);color:${filled===fields.length?"var(--green)":"var(--muted)"};border:1px solid rgba(255,255,255,0.1)">${filled}/${fields.length}</span>
         <button class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
       </div>`;
