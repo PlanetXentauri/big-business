@@ -4,6 +4,13 @@
 <meta charset="UTF-8">
 <meta name="viewport" content="width=device-width, initial-scale=1.0">
 <title>Big Business · Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0d">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Big Business">
 <style>
 @import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap');
 * { box-sizing: border-box; margin: 0; padding: 0; }
@@ -212,6 +219,7 @@ function keyprLogoSVG() {
       textLength="420" lengthAdjust="spacingAndGlyphs"><tspan fill="#25d7f2">KEYPR ON </tspan><tspan fill="#ff8c2e">co.</tspan></text>
   </svg>`;
 }
+
 const STATUS_META = {
   "in-progress": { label: "IN PROGRESS", priority: "🔴 HIGH",  accent: "#3b82f6" },
   "issue":       { label: "NEEDS ACTION", priority: "🟡 MEDIUM", accent: "#f59e0b" },
@@ -1127,6 +1135,7 @@ function addDocLink(biz){
 }
 function delDocLink(biz,bucket,id){ _state.docs[biz][bucket]=_state.docs[biz][bucket].filter(l=>l.id!==id); commit(); }
 
+
 // ---------- Logo upload ----------
 document.getElementById("headerLogo").addEventListener("click", ()=>document.getElementById("logoFile").click());
 document.getElementById("logoFile").addEventListener("change", e=>{
@@ -1181,6 +1190,10 @@ document.getElementById("dataFile").addEventListener("change", e=>{
 load();
 render();
 setTimeout(()=>{ const sp=document.getElementById("splash"); if(sp) sp.remove(); }, 2400);
+// PWA: register service worker when served over https (skipped for local file use)
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
 // v3 — products sync + keypr theme
 </script>
 </body>
