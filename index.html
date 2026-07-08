@@ -198,7 +198,7 @@ const BIZ = {
   keypr:    { name: "🔑 KEYPR ON COMPANY",  short: "Keypr",    accent: "#1fd3ee" },
 };
 const TABS = [
-  ["profile","👤 PROFILE"],["projects","📋 PROJECTS"],["catalog","📦 PRODUCTS"],["financials","💰 FINANCIALS"],
+  ["profile","👤 PROFILE"],["strength","💪 STRENGTH"],["projects","📋 PROJECTS"],["catalog","📦 PRODUCTS"],["financials","💰 FINANCIALS"],
   ["deadlines","⏰ DEADLINES"],["contacts","👥 CONTACTS"],["notes","📝 NOTES"],
 ];
 
@@ -341,8 +341,10 @@ function migrate() { // add keys introduced after first release
   _state.docs ||= {};
   _state.bp ||= {};
   _state.fin ||= {};
+  _state.strength ||= {};
   for (const b of ["centauri","keypr"]) {
     _state.fin[b] ||= {};
+    _state.strength[b] ||= {};
     _state.catalog[b] ||= [];
     _state.catalogMeta[b] ||= { lastSync: null, source: "", srcUrl: "" };
     _state.docs[b] ||= { files: [], links: [], dnb: defaultDnb(), scan: { files: [], lastScan: null, folderName: "" } };
@@ -375,7 +377,7 @@ function render() {
   const s = _state;
   const el = document.getElementById("content");
   const fn = { projects: rProjects, catalog: rCatalog, financials: rFinancials, deadlines: rDeadlines,
-               contacts: rContacts, notes: rNotes, profile: rProfile }[s.activeTab] || rProjects;
+               contacts: rContacts, notes: rNotes, profile: rProfile, strength: rStrength }[s.activeTab] || rProjects;
   el.innerHTML = fn(s.activeBiz);
   document.getElementById("footer").textContent =
     "CENTAURI WORLD LLC · KEYPR ON COMPANY · " +
@@ -1249,6 +1251,93 @@ function applyAutofill(){
   ui.afResults = null;
   ui.afStatus = "✓ Filled " + n + " field(s).";
   commit();
+}
+// ===== PROFILE STRENGTH =====
+// every category that makes a business profile strong = one step toward 100%
+const STRENGTH_ITEMS = [
+  ["entity","Legal entity registered","LLC / Corp active with the state",[["bp","legalName"]]],
+  ["goodstanding","State registration current","Document # on file, annual report current",[["bp","stateRegNum"]]],
+  ["agent","Registered agent on file","Required for good standing",[["bp","agentName"]]],
+  ["ein","EIN issued","Federal tax ID from the IRS",[["bp","ein"]]],
+  ["addr","Business address","Real, consistent address on every record (no PO box)",[["bp","principalAddr"]]],
+  ["phone","Dedicated business phone","In the business name — listed, not personal",[["bp","phone"]]],
+  ["email","Business email on own domain","hello@yourcompany.com — not gmail/yahoo",[["bp","email"]]],
+  ["website","Live website / domain","Site matching the legal or brand name",[["bp","website"]]],
+  ["naics","NAICS code set","Low-risk industry classification chosen",[["bp","naics"]]],
+  ["duns","D-U-N-S number","D&B credit file open",[["bp","duns"]]],
+  ["bank","Business bank account","In the exact legal name",[["fin","bankName"],["bp","bankName"]]],
+  ["card","Business credit card","At least one card reporting",[["fin","card1"],["bp","creditCards"]]],
+  ["tradelines","Net-30 tradelines","3+ vendor accounts reporting (Uline, Quill, Grainger…)",[["fin","tradelines"]]],
+  ["scores","Business credit scores","PAYDEX / Intelliscore established",[["fin","paydex"],["fin","intelliscore"]]],
+  ["processor","Payment processor","Stripe / PayPal / merchant account in business name",[["bp","processors"]]],
+  ["license","Licenses & permits","All required local + state licenses",[["bp","licenses"]]],
+  ["salestax","Sales tax permit","Resale certificate where you sell",[["bp","salesTaxPermit"]]],
+  ["insurance","Business insurance","General liability / product liability active",[["bp","insurance"]]],
+  ["gbp","Google Business Profile","Claimed + verified listing",null],
+  ["b411","411 directory listing","ListYourself.net / 411 — lenders check this",null],
+  ["nap","Consistent NAP everywhere","Same Name-Address-Phone on every listing",null],
+  ["social","Online presence","Active social profiles under the business name",null],
+  ["trademark","Trademark filed","Brand protection — strong credibility signal",[["bp","trademarks"]]],
+];
+function strengthStatus(biz, item){
+  const ov = _state.strength[biz][item[0]];
+  if (ov) return { st: ov, auto: false };
+  const srcs = item[3];
+  if (srcs){
+    for (const [store,key] of srcs){
+      const s = store==="fin" ? _state.fin[biz] : _state.bp[biz];
+      if (s && s[key]) return { st: "done", auto: true };
+    }
+  }
+  return { st: "upcoming", auto: false };
+}
+function cycleStrength(biz, k){
+  const cur = _state.strength[biz][k] || null;
+  const next = { null: "done", "done": "waiting", "waiting": "upcoming", "upcoming": null }[cur===null?null:cur];
+  if (next===null || next===undefined) delete _state.strength[biz][k];
+  else _state.strength[biz][k] = next;
+  commit();
+}
+function rStrength(biz){
+  const tcol = biz==="centauri" ? "#1A6AE8" : "var(--accent)";
+  const rows = STRENGTH_ITEMS.map(it=>({ it, ...strengthStatus(biz,it) }));
+  const done = rows.filter(r=>r.st==="done").length;
+  const waiting = rows.filter(r=>r.st==="waiting").length;
+  const pct = Math.round(done/STRENGTH_ITEMS.length*100);
+  let html = `<div class="section-title">💪 PROFILE STRENGTH — ${BIZ[biz].name}</div>
+  <div class="stats">
+    <div class="stat"><div class="lbl">📊 STRENGTH</div><div class="val" style="color:${BIZ[biz].accent}">${pct}%</div></div>
+    <div class="stat"><div class="lbl">✅ STEPS DONE</div><div class="val" style="color:var(--green)">${done}/${STRENGTH_ITEMS.length}</div></div>
+    <div class="stat"><div class="lbl">⏳ WAITING ON</div><div class="val" style="color:var(--amber)">${waiting}</div></div>
+  </div>
+  <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-bottom:14px;">
+    <div style="height:100%;width:${pct}%;background:${BIZ[biz].accent};transition:width 1s ease"></div>
+  </div>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg','bp')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf','bp')">⚡ AUTOFILL FROM PDF 📄</button>
+  </div>
+  <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">Autofill feeds your Profile & Banking fields — AUTO items below flip to done the moment their field is filled. Click any circle to override: ✓ done → ⏳ waiting → upcoming → back to AUTO.</div>`;
+  if (ui.afStatus && _state.activeTab==="strength") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += afPanelHTML(biz, "bp");
+  html += `<div class="col" style="gap:8px;margin-bottom:14px">` + rows.map((r,i)=>{
+    const sc = STEP_COLORS[r.st] || STEP_COLORS.upcoming;
+    return `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:8px;padding:10px 14px;display:flex;gap:12px;align-items:flex-start">
+      <div onclick="cycleStrength('${biz}','${r.it[0]}')" title="Click to cycle status"
+        style="width:26px;height:26px;border-radius:6px;background:${r.st==='upcoming'?'rgba(255,255,255,0.05)':sc.text+'22'};border:1px solid ${sc.border};display:flex;align-items:center;justify-content:center;font-size:13px;color:${sc.text};flex-shrink:0;cursor:pointer;user-select:none">
+        ${r.st==="done"?"✓":i+1}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:15px;font-weight:700;color:${r.st==='upcoming'?'#8794ab':'#e2e8f0'}">${r.it[1]}</span>
+          ${r.auto?`<span class="chip" style="background:${tcol}22;color:${tcol};border:1px solid ${tcol}44">AUTO ✓</span>`:""}
+          ${r.st==="waiting"?`<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">WAITING</span>`:""}
+        </div>
+        <div style="font-size:13px;color:#8794ab;margin-top:2px">${r.it[2]}</div>
+      </div>
+    </div>`;
+  }).join("") + `</div>`;
+  html += rDocs(biz);
+  return html;
 }
 function afPanelHTML(biz, mode){
   if (!ui.afResults || ui.afResults.biz!==biz || (ui.afResults.mode||"bp")!==mode) return "";
