@@ -160,7 +160,9 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
   <div style="margin-top:32px;display:flex;justify-content:center;gap:8px">
     <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="exportData()">💾 EXPORT DATA</button>
     <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="document.getElementById('dataFile').click()">📥 IMPORT DATA</button>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="ui.showCloud=!ui.showCloud;render()">☁ CLOUD SYNC</button>
   </div>
+  <div id="cloudPanel" style="max-width:600px;margin:10px auto 0"></div>
   <input type="file" id="dataFile" accept=".json,application/json" style="display:none">
   <input type="file" id="bgFile" accept="image/*" style="display:none">
   <div style="margin-top:14px;text-align:center;font-size:12px;letter-spacing:0.2em;color:#1e293b;" id="footer"></div>
@@ -365,7 +367,85 @@ function migrate() { // add keys introduced after first release
     }
   }
 }
-function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(_state)); } catch(e) { console.error(e); } }
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(_state)); } catch(e) { console.error(e); } scheduleCloudWrite(); }
+
+// ===== CLOUD SYNC (Firebase — same pattern as the WFS tracker) =====
+const CLOUD_CFG_KEY = "bigboss_cloud_cfg", CLOUD_CODE_KEY = "bigboss_cloud_code";
+const CLIENT_ID = (()=>{ let c=localStorage.getItem("bigboss_client_id"); if(!c){ c=Date.now().toString(36)+Math.random().toString(36).slice(2,8); try{localStorage.setItem("bigboss_client_id",c);}catch(e){} } return c; })();
+const FB_APP = "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js";
+const FB_AUTH = "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js";
+const FB_DB = "https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js";
+let cloudDoc = null, cloudWriteTimer = null, cloudApplying = false;
+async function cloudConnect(cfg, code){
+  await loadScript(FB_APP); await loadScript(FB_AUTH); await loadScript(FB_DB);
+  if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(cfg);
+  try { await firebase.auth().signInAnonymously(); } catch(e) { /* ok if rules are open */ }
+  cloudDoc = firebase.database().ref("bigboss/" + code);
+  cloudDoc.on("value", snap => {
+    const v = snap.val();
+    if (!v || !v.state || v.origin === CLIENT_ID) return;
+    try {
+      cloudApplying = true;
+      const keepBiz = _state.activeBiz, keepTab = _state.activeTab;
+      _state = JSON.parse(v.state);
+      _state.activeBiz = keepBiz; _state.activeTab = keepTab; // don't yank this device's view around
+      migrate();
+      try { localStorage.setItem(LS_KEY, JSON.stringify(_state)); } catch(e) {}
+      render();
+    } catch(e) { console.error(e); }
+    finally { cloudApplying = false; }
+  });
+  try { localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(cfg)); localStorage.setItem(CLOUD_CODE_KEY, code); } catch(e) {}
+}
+function scheduleCloudWrite(){
+  if (!cloudDoc || cloudApplying) return;
+  clearTimeout(cloudWriteTimer);
+  cloudWriteTimer = setTimeout(()=>{
+    cloudDoc.set({ state: JSON.stringify(_state), updatedAt: Date.now(), origin: CLIENT_ID })
+      .catch(e=>{ ui.cloudMsg = "Cloud write failed: " + e.message; });
+  }, 1200);
+}
+function parseCfg(txt){
+  try { return JSON.parse(txt); } catch(e) {}
+  try { return (new Function("return ("+txt+")"))(); } catch(e) { return null; }
+}
+async function connectCloudClick(){
+  const cfg = parseCfg(document.getElementById("cl-cfg").value.trim());
+  const code = document.getElementById("cl-code").value.trim();
+  if (!cfg || !cfg.projectId){ ui.cloudMsg = "That config doesn't look right — paste the whole firebaseConfig object (must include projectId)."; render(); return; }
+  if (!cfg.databaseURL){ ui.cloudMsg = "Config is missing databaseURL — create the Realtime Database first, then re-copy the config."; render(); return; }
+  if (!code){ ui.cloudMsg = "Pick a sync code — it's the shared secret every device enters."; render(); return; }
+  ui.cloudMsg = "Connecting…"; render();
+  try { await cloudConnect(cfg, code); ui.cloudMsg = "✓ Connected — this device now syncs live."; scheduleCloudWrite(); }
+  catch(e){ ui.cloudMsg = "Couldn't connect: " + e.message; }
+  render();
+}
+function disconnectCloud(){
+  if (cloudDoc) cloudDoc.off();
+  cloudDoc = null;
+  try { localStorage.removeItem(CLOUD_CFG_KEY); localStorage.removeItem(CLOUD_CODE_KEY); } catch(e) {}
+  ui.cloudMsg = "Disconnected — this device is local-only again."; render();
+}
+function renderCloud(){
+  const el = document.getElementById("cloudPanel");
+  if (!el) return;
+  if (!ui.showCloud){
+    el.innerHTML = cloudDoc ? `<div style="text-align:center;font-size:12px;color:var(--green);letter-spacing:0.1em">☁ CLOUD SYNC ON</div>` : "";
+    return;
+  }
+  el.innerHTML = `<div class="form-panel">
+    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent);font-weight:700">☁ CLOUD SYNC — SAME CONFIG + SAME CODE ON EVERY DEVICE</div>
+    <div style="font-size:12px;color:#9aa8c2">Uses your own free Firebase project — the exact same setup as your WFS tracker. Paste the firebaseConfig object and pick a private sync code. Enter the same two things on your phone and every rename, file, and field stays in sync.</div>
+    <textarea id="cl-cfg" rows="4" placeholder='{ "apiKey": "…", "databaseURL": "…", "projectId": "…" }'>${esc(localStorage.getItem(CLOUD_CFG_KEY)||"")}</textarea>
+    <input id="cl-code" placeholder="Sync code (shared secret)" value="${esc(localStorage.getItem(CLOUD_CODE_KEY)||"")}">
+    <div class="row">
+      <button class="btn btn-red" style="flex:1" onclick="connectCloudClick()">☁ CONNECT</button>
+      <button class="btn btn-ghost" onclick="disconnectCloud()">DISCONNECT</button>
+      <button class="btn btn-ghost" onclick="ui.showCloud=false;render()">CLOSE</button>
+    </div>
+    ${ui.cloudMsg?`<div style="font-size:13px;color:var(--accent)">${esc(ui.cloudMsg)}</div>`:""}
+  </div>`;
+}
 function commit() { save(); render(); }
 const uid = p => p + "-" + Date.now() + "-" + Math.floor(Math.random()*1000);
 
@@ -386,6 +466,7 @@ function render() {
   const fn = { projects: rProjects, catalog: rCatalog, financials: rFinancials, deadlines: rDeadlines,
                contacts: rContacts, notes: rNotes, strength: rStrength }[s.activeTab] || rStrength;
   el.innerHTML = fn(s.activeBiz);
+  renderCloud();
   document.getElementById("footer").textContent =
     "CENTAURI WORLD LLC · KEYPR ON COMPANY · " +
     new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase();
@@ -1897,6 +1978,11 @@ setTimeout(()=>{ const sp=document.getElementById("splash"); if(sp) sp.remove();
 if ("serviceWorker" in navigator && location.protocol === "https:") {
   navigator.serviceWorker.register("sw.js").catch(()=>{});
 }
+// cloud sync: auto-reconnect if this device was linked before
+(async()=>{
+  const cfg = localStorage.getItem(CLOUD_CFG_KEY), code = localStorage.getItem(CLOUD_CODE_KEY);
+  if (cfg && code){ try { await cloudConnect(JSON.parse(cfg), code); render(); } catch(e) { console.error(e); } }
+})();
 // v3 — products sync + keypr theme
 </script>
 </body>
