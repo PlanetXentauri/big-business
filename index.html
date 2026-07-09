@@ -1393,7 +1393,7 @@ function rStrength(biz){
           ${files.length?`<span class="chip" style="background:rgba(255,255,255,0.06);color:#9aa8c2;border:1px solid rgba(255,255,255,0.12)">📎 ${files.length}</span>`:""}
         </div>
         <div style="font-size:13px;color:#8794ab;margin-top:2px">${r.it[2]}</div>
-        ${val?`<div style="font-size:14px;font-weight:700;color:#e2e8f0;margin-top:4px;word-break:break-all">${esc(val)}</div>`:""}
+        ${val?`<div style="font-size:14px;font-weight:800;color:var(--gold);margin-top:4px;word-break:break-all">${esc(val)}</div>`:""}
       </div>
       <div onclick="ui.strengthOpen['${k}']=!ui.strengthOpen['${k}'];render()" style="cursor:pointer;color:#8794ab;font-size:18px;flex-shrink:0;transform:rotate(${open?180:0}deg);transition:transform .2s">⌄</div>
       </div>`;
