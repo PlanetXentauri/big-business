@@ -199,7 +199,7 @@ const BIZ = {
   keypr:    { name: "🔑 KEYPR ON COMPANY",  short: "Keypr",    accent: "#1fd3ee" },
 };
 const TABS = [
-  ["profile","👤 PROFILE"],["strength","💪 STRENGTH"],["projects","📋 PROJECTS"],["catalog","📦 PRODUCTS"],["financials","💰 FINANCIALS"],
+  ["strength","💪 STRENGTH"],["projects","📋 PROJECTS"],["catalog","📦 PRODUCTS"],["financials","💰 FINANCIALS"],
   ["deadlines","⏰ DEADLINES"],["contacts","👥 CONTACTS"],["notes","📝 NOTES"],
 ];
 
@@ -382,7 +382,7 @@ function render() {
   const s = _state;
   const el = document.getElementById("content");
   const fn = { projects: rProjects, catalog: rCatalog, financials: rFinancials, deadlines: rDeadlines,
-               contacts: rContacts, notes: rNotes, profile: rProfile, strength: rStrength }[s.activeTab] || rProjects;
+               contacts: rContacts, notes: rNotes, strength: rStrength }[s.activeTab] || rStrength;
   el.innerHTML = fn(s.activeBiz);
   document.getElementById("footer").textContent =
     "CENTAURI WORLD LLC · KEYPR ON COMPANY · " +
@@ -417,13 +417,13 @@ function renderBizTabs() {
 function renderSubTabs() {
   const s = _state;
   document.getElementById("subTabs").innerHTML = TABS.map(([id,label]) => {
-    const gold = id==="profile"
+    const gold = id==="strength"
       ? `style="border-color:var(--gold);color:var(--gold);${s.activeTab===id?'background:var(--gold-dim);font-weight:700;':''}"`
       : "";
     return `<button class="sub-tab ${s.activeTab===id?'active':''}" ${gold} onclick="setTab('${id}')">${label}</button>`;
   }).join("");
 }
-function setBiz(id){ _state.activeBiz = id; _state.activeTab = "profile"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
+function setBiz(id){ _state.activeBiz = id; _state.activeTab = "strength"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
 function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
 
 // ========== PROJECTS ==========
@@ -1358,8 +1358,10 @@ function rStrength(biz){
   const done = rows.filter(r=>r.st==="done").length;
   const waiting = rows.filter(r=>r.st==="waiting").length;
   const pct = Math.round(done/STRENGTH_ITEMS.length*100);
-  let html = `<div class="section-title">💪 PROFILE STRENGTH — ${BIZ[biz].name}</div>
-  <div class="stats">
+  let html = `<div class="section-title">💪 PROFILE STRENGTH — ${BIZ[biz].name}</div>`;
+  if (biz==="keypr") html += `<div style="width:290px;margin:0 auto 14px">${keyprLogoSVG()}</div>`;
+  if (biz==="centauri") html += `<div style="width:290px;margin:0 auto 14px">${centauriLogoSVG()}</div>`;
+  html += `<div class="stats">
     <div class="stat"><div class="lbl">📊 STRENGTH</div><div class="val" style="color:${BIZ[biz].accent}">${pct}%</div></div>
     <div class="stat"><div class="lbl">✅ STEPS DONE</div><div class="val" style="color:var(--green)">${done}/${STRENGTH_ITEMS.length}</div></div>
     <div class="stat"><div class="lbl">⏳ WAITING ON</div><div class="val" style="color:var(--amber)">${waiting}</div></div>
@@ -1866,9 +1868,9 @@ document.getElementById("dataFile").addEventListener("change", e=>{
 
 // ---------- Boot ----------
 load();
-// always open on Centauri World LLC → Profile
+// always open on Centauri World LLC → Strength
 _state.activeBiz = "centauri";
-_state.activeTab = "profile";
+_state.activeTab = "strength";
 render();
 setTimeout(()=>{ const sp=document.getElementById("splash"); if(sp) sp.remove(); }, 2400);
 // PWA: register service worker when served over https (skipped for local file use)
