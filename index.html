@@ -345,6 +345,8 @@ function migrate() { // add keys introduced after first release
   _state.strength ||= {};
   _state.strengthData ||= {};
   _state.strengthFiles ||= {};
+  _state.tabNames ||= {};
+  _state.bizNames ||= {};
   for (const b of ["centauri","keypr"]) {
     _state.fin[b] ||= {};
     _state.strength[b] ||= {};
@@ -368,7 +370,7 @@ function commit() { save(); render(); }
 const uid = p => p + "-" + Date.now() + "-" + Math.floor(Math.random()*1000);
 
 // UI-only flags (not persisted)
-let ui = { showNewProject:false, addStepFor:null, showForm:{}, contactTab:"list", editProd:null, catStatus:"", docOpen:{}, strengthOpen:{} };
+let ui = { showNewProject:false, addStepFor:null, showForm:{}, contactTab:"list", editProd:null, catStatus:"", docOpen:{}, strengthOpen:{}, renameMode:false };
 
 // ---------- Renderers ----------
 function render() {
@@ -405,23 +407,41 @@ function renderLogos() {
     : `<button class="btn btn-ghost" style="font-size:11px;padding:4px 9px" title="Set background image" onclick="document.getElementById('bgFile').click()">⛰ BG</button>`;
 }
 function clearBg(){ _state.bg = null; commit(); }
+function tabLabel(id, fallback){ return _state.tabNames[id] || fallback; }
+function bizLabel(id){ return _state.bizNames[id] || BIZ[id].name; }
+function renameTab(id){
+  const cur = tabLabel(id, TABS.find(([t])=>t===id)[1]);
+  const n = prompt("Rename tab — emoji + name (leave empty to reset):", cur);
+  if (n===null) return;
+  if (n.trim()) _state.tabNames[id]=n.trim(); else delete _state.tabNames[id];
+  commit();
+}
+function renameBiz(id){
+  const n = prompt("Rename business tab — emoji + name (leave empty to reset):", bizLabel(id));
+  if (n===null) return;
+  if (n.trim()) _state.bizNames[id]=n.trim(); else delete _state.bizNames[id];
+  commit();
+}
 function renderBizTabs() {
   const s = _state;
   document.getElementById("bizTabs").innerHTML = Object.entries(BIZ).map(([id,b]) => {
     const active = s.activeBiz === id;
-    const mark = "";
-    return `<div class="biz-tab ${active?'active':''}" onclick="setBiz('${id}')"
-      style="display:flex;align-items:center;justify-content:center;${active?`border-color:${b.accent};background:${b.accent}18;color:${b.accent};`:''}">${mark}<span>${b.name}</span></div>`;
+    const dash = ui.renameMode ? "border-style:dashed;" : "";
+    return `<div class="biz-tab ${active?'active':''}" onclick="${ui.renameMode?`renameBiz('${id}')`:`setBiz('${id}')`}"
+      style="display:flex;align-items:center;justify-content:center;${dash}${active?`border-color:${b.accent};background:${b.accent}18;color:${b.accent};`:''}"><span>${esc(bizLabel(id))}</span></div>`;
   }).join("");
 }
 function renderSubTabs() {
   const s = _state;
   document.getElementById("subTabs").innerHTML = TABS.map(([id,label]) => {
+    const dash = ui.renameMode ? "border-style:dashed;" : "";
     const gold = id==="strength"
-      ? `style="border-color:var(--gold);color:var(--gold);${s.activeTab===id?'background:var(--gold-dim);font-weight:700;':''}"`
-      : "";
-    return `<button class="sub-tab ${s.activeTab===id?'active':''}" ${gold} onclick="setTab('${id}')">${label}</button>`;
-  }).join("");
+      ? `style="${dash}border-color:var(--gold);color:var(--gold);${s.activeTab===id?'background:var(--gold-dim);font-weight:700;':''}"`
+      : (dash?`style="${dash}"`:"");
+    return `<button class="sub-tab ${s.activeTab===id?'active':''}" ${gold} onclick="${ui.renameMode?`renameTab('${id}')`:`setTab('${id}')`}">${esc(tabLabel(id,label))}</button>`;
+  }).join("") + `<button class="sub-tab" title="${ui.renameMode?'Done renaming':'Rename tabs — then click any tab to rename it'}"
+    style="${ui.renameMode?'border-color:var(--green);color:var(--green);background:rgba(16,185,129,0.12);':''}"
+    onclick="ui.renameMode=!ui.renameMode;render()">${ui.renameMode?'✅ DONE':'✎'}</button>`;
 }
 function setBiz(id){ _state.activeBiz = id; _state.activeTab = "strength"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
 function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
