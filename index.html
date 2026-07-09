@@ -380,7 +380,7 @@ async function cloudConnect(cfg, code){
   await loadScript(FB_APP); await loadScript(FB_AUTH); await loadScript(FB_DB);
   if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(cfg);
   try { await firebase.auth().signInAnonymously(); } catch(e) { /* ok if rules are open */ }
-  cloudDoc = firebase.database().ref("bigboss/" + code);
+  cloudDoc = firebase.database().ref("trackers/bigboss-" + code);
   cloudDoc.on("value", snap => {
     const v = snap.val();
     if (!v || !v.state || v.origin === CLIENT_ID) return;
@@ -394,7 +394,7 @@ async function cloudConnect(cfg, code){
       render();
     } catch(e) { console.error(e); }
     finally { cloudApplying = false; }
-  });
+  }, err => { ui.cloudMsg = "Cloud read error: " + err.message; render(); });
   try { localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(cfg)); localStorage.setItem(CLOUD_CODE_KEY, code); } catch(e) {}
 }
 function scheduleCloudWrite(){
