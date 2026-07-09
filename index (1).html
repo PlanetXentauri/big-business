@@ -1,0 +1,2234 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Big Business · Dashboard</title>
+<link rel="manifest" href="manifest.json">
+<meta name="theme-color" content="#0a0a0d">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Big Business">
+<style>
+@import url('https://fonts.googleapis.com/css2?family=Cinzel:wght@700;900&family=DM+Mono:wght@300;400;500&family=Syne:wght@700;800&display=swap');
+* { box-sizing: border-box; margin: 0; padding: 0; }
+:root {
+  --bg: #0a0a0d;
+  --panel: rgba(255,255,255,0.025);
+  --border: rgba(255,255,255,0.08);
+  --gold: #E8B64C;
+  --gold-dim: rgba(232,182,76,0.12);
+  --text: #e2e8f0;
+  --muted: #9aa7bd;
+  --faint: #9aa8c2;
+  --green: #10b981;
+  --amber: #f59e0b;
+  --blue: #3b82f6;
+  --purple: #8b5cf6;
+  --cyan: #1fd3ee;
+  --accent: #E8B64C;          /* switches per business in render() */
+  --accent-dim: rgba(232,182,76,0.12);
+  --accent-brd: rgba(232,182,76,0.35);
+}
+body {
+  background: var(--bg);
+  color: var(--text);
+  font-family: 'DM Mono', monospace;
+  min-height: 100vh;
+}
+h1,h2,h3,.syne { font-family: 'Syne', sans-serif; }
+button, input, select, textarea { font-family: inherit; }
+input, select, textarea {
+  width: 100%; background: rgba(255,255,255,0.04);
+  border: 1px solid rgba(255,255,255,0.1); border-radius: 6px;
+  padding: 9px 12px; color: var(--text); font-size: 15px; outline: none;
+}
+input:focus, select:focus, textarea:focus { border-color: var(--accent); }
+::placeholder { color: #8794ab; }
+.btn {
+  border: none; border-radius: 6px; padding: 9px 14px; font-size: 13px;
+  font-weight: 800; cursor: pointer; letter-spacing: 0.06em;
+  font-family: 'DM Mono', monospace;
+}
+.btn-red { background: var(--accent); color: #0d0d10; }
+.btn-ghost { background: rgba(255,255,255,0.05); color: #94a3b8; border: 1px solid rgba(255,255,255,0.1); }
+.btn-dashed {
+  background: rgba(255,255,255,0.02); border: 1px dashed rgba(255,255,255,0.14);
+  color: var(--muted); width: 100%; padding: 10px; border-radius: 8px;
+  cursor: pointer; font-size: 13px; letter-spacing: 0.08em;
+}
+.btn-dashed:hover { border-color: var(--accent); color: var(--accent); }
+.card {
+  background: var(--panel); border: 1px solid var(--border);
+  border-radius: 14px; overflow: hidden;
+}
+.chip {
+  font-size: 11px; letter-spacing: 0.18em; padding: 2px 7px; border-radius: 4px;
+  display: inline-block; font-weight: 700;
+}
+.section-title { font-size: 12px; letter-spacing: 0.3em; color: #94a3b8; font-weight: 700; margin: 4px 0 12px; }
+.del-x {
+  background: transparent; border: none; color: #8794ab; font-size: 16px;
+  cursor: pointer; padding: 2px 6px; opacity: 0.55;
+}
+.del-x:hover { color: #ef4444; opacity: 1; }
+.empty {
+  padding: 30px 16px; text-align: center; color: var(--muted); font-size: 14px;
+  border: 1px dashed rgba(255,255,255,0.1); border-radius: 12px;
+}
+@keyframes spin { from{transform:rotate(0)} to{transform:rotate(360deg)} }
+@keyframes fadeout { to { opacity: 0; visibility: hidden; } }
+@keyframes pulse { 0%,100%{opacity:1} 50%{opacity:.45} }
+
+/* ===== Splash ===== */
+#splash {
+  position: fixed; inset: 0; background: #050506; z-index: 999;
+  display: flex; align-items: center; justify-content: center;
+  animation: fadeout 0.7s ease 1.5s forwards;
+}
+#splash .logo-wrap { width: min(560px, 86vw); }
+
+/* ===== Watermark ===== */
+#watermark {
+  position: fixed; inset: 0; display: flex; align-items: center; justify-content: center;
+  pointer-events: none; z-index: 0; opacity: 0.05;
+}
+#watermark .logo-wrap { width: min(520px, 85vw); }
+
+/* ===== Layout ===== */
+#shell { position: relative; z-index: 1; max-width: 720px; margin: 0 auto; padding: 26px 16px 60px; }
+header.app { display: flex; flex-direction: column; gap: 12px; margin-bottom: 20px; }
+header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer; }
+.biz-tabs { display: grid; grid-template-columns: 1fr 1fr; gap: 8px; margin-bottom: 10px; }
+.biz-tab {
+  padding: 13px 10px; border-radius: 10px; cursor: pointer; text-align: center;
+  border: 1px solid var(--border); background: var(--panel);
+  font-size: 14px; letter-spacing: 0.12em; color: var(--muted); font-weight: 800;
+  transition: all .2s;
+}
+.biz-tab.active { color: #fff; }
+.sub-tabs { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 16px; }
+.sub-tab {
+  padding: 7px 12px; border-radius: 999px; cursor: pointer; font-size: 12px;
+  letter-spacing: 0.1em; border: 1px solid var(--border);
+  background: transparent; color: var(--muted); font-weight: 700;
+}
+.sub-tab.active { border-color: var(--accent); color: var(--accent); background: var(--accent-dim); }
+.stats { display: grid; grid-template-columns: repeat(3,1fr); gap: 10px; margin-bottom: 14px; }
+.stat {
+  background: var(--panel); border: 1px solid var(--border); border-radius: 10px;
+  padding: 12px 10px; text-align: center;
+}
+.stat .lbl { font-size: 12px; color: var(--faint); letter-spacing: 0.1em; margin-bottom: 6px; }
+.stat .val { font-family: 'DM Mono', monospace; font-size: 23px; font-weight: 800; }
+.row { display: flex; gap: 8px; }
+.col { display: flex; flex-direction: column; gap: 8px; }
+.form-panel {
+  background: var(--accent-dim); border: 1px solid var(--accent-brd);
+  border-radius: 12px; padding: 16px; display: flex; flex-direction: column; gap: 9px;
+  margin-bottom: 12px;
+}
+.grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
+#bgCorner { position: fixed; right: 14px; bottom: 12px; z-index: 50; display: flex; gap: 6px; opacity: 0.4; transition: opacity .2s; }
+#bgCorner:hover { opacity: 1; }
+</style>
+</head>
+<body>
+
+<div id="splash"><div class="logo-wrap"></div></div>
+<div id="watermark"><div class="logo-wrap"></div></div>
+<div id="shell">
+  <header class="app">
+    <div class="logo-wrap" id="headerLogo" title="Click to upload your logo PNG"></div>
+    <div style="display:flex;align-items:center;gap:12px;">
+      <div style="height:1px;flex:1;background:linear-gradient(90deg,transparent,rgba(232,182,76,0.45))"></div>
+      <div style="font-size:12px;letter-spacing:0.34em;color:var(--gold);font-weight:800;">MASTER BUSINESS DASHBOARD</div>
+      <div style="height:1px;flex:1;background:linear-gradient(90deg,rgba(232,182,76,0.45),transparent)"></div>
+    </div>
+  </header>
+  <input type="file" id="logoFile" accept="image/*" style="display:none">
+  <input type="file" id="catFile" accept=".json,application/json" style="display:none">
+  <input type="file" id="docFile" multiple style="display:none">
+  <input type="file" id="afImg" accept="image/*" style="display:none">
+  <input type="file" id="afPdf" accept="application/pdf,.pdf" style="display:none">
+  <input type="file" id="skFile" multiple style="display:none">
+  <div class="biz-tabs" id="bizTabs"></div>
+  <div class="sub-tabs" id="subTabs"></div>
+  <div id="content"></div>
+  <div style="margin-top:32px;display:flex;justify-content:center;gap:8px">
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="exportData()">💾 EXPORT DATA</button>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="document.getElementById('dataFile').click()">📥 IMPORT DATA</button>
+    <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="ui.showCloud=!ui.showCloud;render()">☁ CLOUD SYNC</button>
+  </div>
+  <div id="cloudPanel" style="max-width:600px;margin:10px auto 0"></div>
+  <input type="file" id="dataFile" accept=".json,application/json" style="display:none">
+  <input type="file" id="bgFile" accept="image/*" style="display:none">
+  <div style="margin-top:14px;text-align:center;font-size:12px;letter-spacing:0.2em;color:#1e293b;" id="footer"></div>
+</div>
+<div id="bgCorner"></div>
+
+<script>
+// ==================================================
+// BIG BUSINESS — dual business dashboard
+// Centauri World LLC + Keypr On Company
+// All data lives in localStorage on this machine.
+// ==================================================
+const LS_KEY = "bigboss_dashboard_v1";
+const esc = s => String(s ?? "").replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+
+// ---------- Default logo (SVG recreation of "BIG BUSINESS" gold wordmark) ----------
+let _logoN = 0;
+function logoSVG() {
+  return `
+  <svg viewBox="0 0 970 190" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">
+    <text x="485" y="132" text-anchor="middle"
+      font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="900"
+      font-size="118" letter-spacing="4"
+      fill="#E8B64C">BIG BUSINESS</text>
+  </svg>`;
+}
+function logoHTML() {
+  const s = state();
+  if (s && s.logo) return `<img src="${s.logo}" style="width:100%;display:block" alt="The Big Boss logo">`;
+  return logoSVG();
+}
+
+// ---------- Businesses ----------
+const BIZ = {
+  centauri: { name: "🌐 CENTAURI WORLD LLC", short: "Centauri", accent: "#E8B64C" },
+  keypr:    { name: "🔑 KEYPR ON COMPANY",  short: "Keypr",    accent: "#1fd3ee" },
+};
+const TABS = [
+  ["strength","💪 STRENGTH"],["projects","📋 PROJECTS"],["catalog","📦 PRODUCTS"],["financials","💰 FINANCIALS"],
+  ["deadlines","⏰ DEADLINES"],["contacts","👥 CONTACTS"],["notes","📝 NOTES"],
+];
+
+// ---------- Keypr On wordmark (logo colors: neon cyan + red) ----------
+function keyprLogoSVG() {
+  return `
+  <svg viewBox="0 0 460 68" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block" aria-label="Keypr On co.">
+    <text x="230" y="48" text-anchor="middle" font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="700" font-size="38"
+      textLength="420" lengthAdjust="spacingAndGlyphs"><tspan fill="#25d7f2">KEYPR ON </tspan><tspan fill="#ff8c2e">co.</tspan></text>
+  </svg>`;
+}
+
+const STATUS_META = {
+  "in-progress": { label: "IN PROGRESS", priority: "🔴 HIGH",  accent: "#3b82f6" },
+  "issue":       { label: "NEEDS ACTION", priority: "🟡 MEDIUM", accent: "#f59e0b" },
+  "nearly-done": { label: "NEARLY DONE", priority: "🟢 LOW",   accent: "#10b981" },
+  "new":         { label: "NEW PROJECT", priority: "⚪ TBD",    accent: "#8b5cf6" },
+};
+const STEP_COLORS = {
+  done:    { bg: "rgba(16,185,129,0.12)", border: "#10b981", text: "#10b981" },
+  waiting: { bg: "rgba(245,158,11,0.12)", border: "#f59e0b", text: "#f59e0b" },
+  upcoming:{ bg: "rgba(255,255,255,0.02)", border: "rgba(255,255,255,0.07)", text: "#8794ab" },
+};
+
+// ---------- Default data ----------
+function defaultState() {
+  return {
+    logo: null,
+    bg: null, // custom watermark background image (data URI)
+    activeBiz: "centauri",
+    activeTab: "projects",
+    openProject: "amazon",
+    projects: [
+      { id:"amazon", biz:"keypr", brand:"KEYPRONYX", title:"Amazon Compliance",
+        subtitle:"CR2032 Coin Cell Battery · Reese's Law", status:"in-progress",
+        steps:[
+          {id:1,status:"done",label:"Lab Identified",detail:"Intertek — Hillside, IL",sub:"Reese's Law accredited · 1-800-967-5352"},
+          {id:2,status:"done",label:"Contact Made",detail:"Info left with receptionist",sub:"Friday, April 24, 2026"},
+          {id:3,status:"waiting",label:"Awaiting Callback",detail:"Intertek engineer to call back",sub:"Expected by end of day Tuesday, April 29"},
+          {id:4,status:"upcoming",label:"Consultation Call",detail:"Get sample count, quote & schedule",sub:"Ask: How many samples for 16 CFR 1700?"},
+          {id:5,status:"upcoming",label:"Order Packaging Samples",detail:"Order exact qty confirmed by lab",sub:"Don't order until lab confirms count"},
+          {id:6,status:"upcoming",label:"Drop Off Samples",detail:"Drive to Hillside, IL",sub:"Mon–Fri 8AM–5PM"},
+          {id:7,status:"upcoming",label:"Receive Test Report",detail:"16 CFR 1700 certification issued",sub:"2–4 weeks after drop-off"},
+          {id:8,status:"upcoming",label:"Submit GCC to Amazon",detail:"GCC + lab report → Amazon",sub:"Listing reinstated after review"},
+        ]},
+      { id:"walmart-uni2", biz:"centauri", brand:"WALMART", title:"SKU UNI2 · POSCA Monotone",
+        subtitle:"Uni POSCA PC-5M 8-Count Monotone · ID: 3406107934", status:"issue",
+        steps:[
+          {id:1,status:"done",label:"Product Listed",detail:"Listed at $18.88",sub:"Net profit $11.53/unit · 61.1% margin"},
+          {id:2,status:"done",label:"Buy Box Tracked",detail:"Competitor: uni-ball Corp (1P) at $19.97",sub:"~71 units/mo demand"},
+          {id:3,status:"waiting",label:"Listing Quality Score",detail:"Current score: 61% — needs improvement",sub:"Improve title, images, content"},
+          {id:4,status:"upcoming",label:"Confirm Units On Hand",detail:"Verify inventory count in Seller Center",sub:"Update stock levels"},
+          {id:5,status:"upcoming",label:"Resolve Processing Issues",detail:"Check for stuck Processing status",sub:"Add price/inventory or retire & relist"},
+          {id:6,status:"upcoming",label:"Optimize Listing",detail:"Push Quality Score above 80%",sub:"Title, bullets, images, attributes"},
+        ]},
+      { id:"walmart-uni5", biz:"centauri", brand:"WALMART", title:"SKU UNI5 · POSCA Assorted",
+        subtitle:"Uni POSCA PC-5M 8-Count Assorted · ID: 591166907", status:"issue",
+        steps:[
+          {id:1,status:"done",label:"Product Listed",detail:"Listed at $19.88",sub:"~457 units/mo demand · 4.7★ (1,715 reviews)"},
+          {id:2,status:"done",label:"Competition Mapped",detail:"Walmart 1P at $19.97 · Lowest 3P: $16.97",sub:"Ocean State Office Supply undercutting"},
+          {id:3,status:"waiting",label:"Units On Hand = 0",detail:"Currently OUT OF STOCK",sub:"Restock needed immediately — high demand SKU"},
+          {id:4,status:"upcoming",label:"Resolve Processing Status",detail:"Listing may be stuck in Processing",sub:"Add inventory + price to activate"},
+          {id:5,status:"upcoming",label:"Reprice Strategically",detail:"Compete vs $16.97 floor",sub:"Stay above cost while undercutting 1P"},
+          {id:6,status:"upcoming",label:"Optimize Listing Quality",detail:"Current score: 62%",sub:"Push above 80% for Buy Box advantage"},
+        ]},
+      { id:"centauri-brand", biz:"centauri", brand:"BRAND", title:"Centauri World Brand Identity",
+        subtitle:"Logo · Typography · Color System · Assets", status:"nearly-done",
+        steps:[
+          {id:1,status:"done",label:"Brand Direction Set",detail:"Custom dot-sphere globe logo chosen",sub:"Rejected: Crux, Meridian, Binary Orbit concepts"},
+          {id:2,status:"done",label:"Color Palette Finalized",detail:"Deep Space · Electric Blue · Stellar Silver · Centauri Gold",sub:"#070B16 · #1A6AE8 · #8A9AB5 · #E8B64C"},
+          {id:3,status:"done",label:"Typography System",detail:"Outfit Bold (CENTAURI) + Outfit Light (WORLD)",sub:"Body: DM Sans"},
+          {id:4,status:"done",label:"14 SVG Files Produced",detail:"Primary, monochrome, icon, stacked, wordmark",sub:"Full production-ready asset suite"},
+          {id:5,status:"upcoming",label:"Apply to Walmart Listings",detail:"Use brand assets in product imagery",sub:"Seller Center listing images & storefront"},
+          {id:6,status:"upcoming",label:"Apply to Amazon Listings",detail:"Brand registry + A+ content",sub:"Once compliance is resolved"},
+        ]},
+    ],
+    financials: {
+      centauri: [
+        {id:"f1", label:"UNI2 net profit / unit", value:"$11.53", note:"61.1% margin at $18.88"},
+        {id:"f2", label:"UNI5 demand", value:"~457 units/mo", note:"Currently out of stock"},
+        {id:"f3", label:"UNI2 demand", value:"~71 units/mo", note:"Buy Box vs uni-ball 1P $19.97"},
+      ],
+      keypr: [
+        {id:"f4", label:"Amazon listing status", value:"Suspended", note:"Pending Reese's Law compliance"},
+      ],
+    },
+    profiles: {
+      centauri: {
+        legal: "Centauri World LLC", brands: "Centauri World",
+        marketplaces: "Walmart Marketplace (Seller Center)",
+        ids: "UNI2: 3406107934 · UNI5: 591166907",
+        colors: "#070B16 Deep Space · #1A6AE8 Electric Blue · #8A9AB5 Stellar Silver · #E8B64C Centauri Gold",
+        notes: "Typography: Outfit Bold/Light + DM Sans. 14 production SVG assets ready.",
+      },
+      keypr: {
+        legal: "Keypr On Company", brands: "KEYPRONYX",
+        marketplaces: "Amazon Seller Central",
+        ids: "CR2032 coin cell product line",
+        colors: "",
+        notes: "Compliance path: 16 CFR 1700 via Intertek (Hillside, IL) → GCC → Amazon reinstatement.",
+      },
+    },
+    deadlines: [
+      {id:"d1", biz:"keypr", title:"Intertek engineer callback", date:"2026-04-29", note:"Follow up if no call by EOD", done:true},
+    ],
+    contacts: [
+      {id:"c1", biz:"keypr", name:"Intertek — Hillside, IL", role:"Compliance Lab", phone:"1-800-967-5352", email:"", notes:"Reese's Law accredited. Spoke to receptionist 4/24."},
+    ],
+    links: [],
+    notes: [],
+    catalog: { centauri: [], keypr: [] },
+    catalogMeta: {
+      centauri: { lastSync: null, source: "", srcUrl: "" },
+      keypr:    { lastSync: null, source: "", srcUrl: "" },
+    },
+    docs: null, // filled by migrate()
+  };
+}
+function defaultDnb() {
+  return [
+    { id: uid("dnb"), label: "D&B Business Directory — company search", url: "https://www.dnb.com/business-directory.html" },
+    { id: uid("dnb"), label: "D-U-N-S Number lookup / request", url: "https://www.dnb.com/duns-number/lookup.html" },
+  ];
+}
+
+// ---------- State ----------
+let _state = null;
+function state() { return _state; }
+function load() {
+  try {
+    const raw = localStorage.getItem(LS_KEY);
+    if (raw) { _state = JSON.parse(raw); migrate(); return; }
+  } catch(e) {}
+  _state = defaultState();
+  migrate();
+}
+function migrate() { // add keys introduced after first release
+  _state.catalog ||= { centauri: [], keypr: [] };
+  _state.catalogMeta ||= {};
+  _state.docs ||= {};
+  _state.bp ||= {};
+  _state.fin ||= {};
+  _state.strength ||= {};
+  _state.strengthData ||= {};
+  _state.strengthFiles ||= {};
+  _state.tabNames ||= {};
+  _state.bizNames ||= {};
+  for (const b of ["centauri","keypr"]) {
+    _state.fin[b] ||= {};
+    _state.strength[b] ||= {};
+    _state.strengthData[b] ||= {};
+    _state.strengthFiles[b] ||= {};
+    _state.catalog[b] ||= [];
+    _state.catalogMeta[b] ||= { lastSync: null, source: "", srcUrl: "" };
+    _state.docs[b] ||= { files: [], links: [], dnb: defaultDnb(), scan: { files: [], lastScan: null, folderName: "" } };
+    _state.bp[b] ||= {};
+    const old = _state.profiles && _state.profiles[b];
+    if (old) { // carry legacy profile values into the structured profile
+      const m = _state.bp[b];
+      m.legalName ||= old.legal || ""; m.brands ||= old.brands || "";
+      m.colors ||= old.colors || ""; m.notes ||= old.notes || "";
+      m.marketplaces ||= old.marketplaces || ""; m.keyIds ||= old.ids || "";
+    }
+  }
+}
+function save() { try { localStorage.setItem(LS_KEY, JSON.stringify(_state)); } catch(e) { console.error(e); } scheduleCloudWrite(); }
+
+// ===== CLOUD SYNC (Firebase — same pattern as the WFS tracker) =====
+const CLOUD_CFG_KEY = "bigboss_cloud_cfg", CLOUD_CODE_KEY = "bigboss_cloud_code";
+const CLIENT_ID = (()=>{ let c=localStorage.getItem("bigboss_client_id"); if(!c){ c=Date.now().toString(36)+Math.random().toString(36).slice(2,8); try{localStorage.setItem("bigboss_client_id",c);}catch(e){} } return c; })();
+const FB_APP = "https://www.gstatic.com/firebasejs/10.12.0/firebase-app-compat.js";
+const FB_AUTH = "https://www.gstatic.com/firebasejs/10.12.0/firebase-auth-compat.js";
+const FB_DB = "https://www.gstatic.com/firebasejs/10.12.0/firebase-database-compat.js";
+let cloudDoc = null, cloudWriteTimer = null, cloudApplying = false;
+async function cloudConnect(cfg, code){
+  await loadScript(FB_APP); await loadScript(FB_AUTH); await loadScript(FB_DB);
+  if (!firebase.apps || !firebase.apps.length) firebase.initializeApp(cfg);
+  try { await firebase.auth().signInAnonymously(); } catch(e) { /* ok if rules are open */ }
+  cloudDoc = firebase.database().ref("trackers/bigboss-" + code);
+  cloudDoc.on("value", snap => {
+    const v = snap.val();
+    if (!v || !v.state || v.origin === CLIENT_ID) return;
+    try {
+      cloudApplying = true;
+      const keepBiz = _state.activeBiz, keepTab = _state.activeTab;
+      _state = JSON.parse(v.state);
+      _state.activeBiz = keepBiz; _state.activeTab = keepTab; // don't yank this device's view around
+      migrate();
+      try { localStorage.setItem(LS_KEY, JSON.stringify(_state)); } catch(e) {}
+      render();
+    } catch(e) { console.error(e); }
+    finally { cloudApplying = false; }
+  }, err => { ui.cloudMsg = "Cloud read error: " + err.message; render(); });
+  try { localStorage.setItem(CLOUD_CFG_KEY, JSON.stringify(cfg)); localStorage.setItem(CLOUD_CODE_KEY, code); } catch(e) {}
+}
+function scheduleCloudWrite(){
+  if (!cloudDoc || cloudApplying) return;
+  clearTimeout(cloudWriteTimer);
+  cloudWriteTimer = setTimeout(()=>{
+    cloudDoc.set({ state: JSON.stringify(_state), updatedAt: Date.now(), origin: CLIENT_ID })
+      .catch(e=>{ ui.cloudMsg = "Cloud write failed: " + e.message; });
+  }, 1200);
+}
+function parseCfg(txt){
+  try { return JSON.parse(txt); } catch(e) {}
+  try { return (new Function("return ("+txt+")"))(); } catch(e) { return null; }
+}
+async function connectCloudClick(){
+  const cfg = parseCfg(document.getElementById("cl-cfg").value.trim());
+  const code = document.getElementById("cl-code").value.trim();
+  if (!cfg || !cfg.projectId){ ui.cloudMsg = "That config doesn't look right — paste the whole firebaseConfig object (must include projectId)."; render(); return; }
+  if (!cfg.databaseURL){ ui.cloudMsg = "Config is missing databaseURL — create the Realtime Database first, then re-copy the config."; render(); return; }
+  if (!code){ ui.cloudMsg = "Pick a sync code — it's the shared secret every device enters."; render(); return; }
+  ui.cloudMsg = "Connecting…"; render();
+  try { await cloudConnect(cfg, code); ui.cloudMsg = "✓ Connected — this device now syncs live."; scheduleCloudWrite(); }
+  catch(e){ ui.cloudMsg = "Couldn't connect: " + e.message; }
+  render();
+}
+function disconnectCloud(){
+  if (cloudDoc) cloudDoc.off();
+  cloudDoc = null;
+  try { localStorage.removeItem(CLOUD_CFG_KEY); localStorage.removeItem(CLOUD_CODE_KEY); } catch(e) {}
+  ui.cloudMsg = "Disconnected — this device is local-only again."; render();
+}
+function renderCloud(){
+  const el = document.getElementById("cloudPanel");
+  if (!el) return;
+  if (!ui.showCloud){
+    el.innerHTML = cloudDoc ? `<div style="text-align:center;font-size:12px;color:var(--green);letter-spacing:0.1em">☁ CLOUD SYNC ON</div>` : "";
+    return;
+  }
+  el.innerHTML = `<div class="form-panel">
+    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent);font-weight:700">☁ CLOUD SYNC — SAME CONFIG + SAME CODE ON EVERY DEVICE</div>
+    <div style="font-size:12px;color:#9aa8c2">Uses your own free Firebase project — the exact same setup as your WFS tracker. Paste the firebaseConfig object and pick a private sync code. Enter the same two things on your phone and every rename, file, and field stays in sync.</div>
+    <textarea id="cl-cfg" rows="4" placeholder='{ "apiKey": "…", "databaseURL": "…", "projectId": "…" }'>${esc(localStorage.getItem(CLOUD_CFG_KEY)||"")}</textarea>
+    <input id="cl-code" placeholder="Sync code (shared secret)" value="${esc(localStorage.getItem(CLOUD_CODE_KEY)||"")}">
+    <div class="row">
+      <button class="btn btn-red" style="flex:1" onclick="connectCloudClick()">☁ CONNECT</button>
+      <button class="btn btn-ghost" onclick="disconnectCloud()">DISCONNECT</button>
+      <button class="btn btn-ghost" onclick="ui.showCloud=false;render()">CLOSE</button>
+    </div>
+    ${ui.cloudMsg?`<div style="font-size:13px;color:var(--accent)">${esc(ui.cloudMsg)}</div>`:""}
+  </div>`;
+}
+function commit() { save(); render(); }
+const uid = p => p + "-" + Date.now() + "-" + Math.floor(Math.random()*1000);
+
+// UI-only flags (not persisted)
+let ui = { showNewProject:false, addStepFor:null, showForm:{}, contactTab:"list", editProd:null, catStatus:"", docOpen:{}, strengthOpen:{}, renameMode:false };
+
+// ---------- Renderers ----------
+function render() {
+  // per-business accent: gold for Centauri, neon cyan for Keypr On
+  const a = BIZ[_state.activeBiz].accent;
+  const rt = document.documentElement.style;
+  rt.setProperty("--accent", a);
+  rt.setProperty("--accent-dim", a + "1f");
+  rt.setProperty("--accent-brd", a + "59");
+  renderLogos(); renderBizTabs(); renderSubTabs();
+  const s = _state;
+  const el = document.getElementById("content");
+  const fn = { projects: rProjects, catalog: rCatalog, financials: rFinancials, deadlines: rDeadlines,
+               contacts: rContacts, notes: rNotes, strength: rStrength }[s.activeTab] || rStrength;
+  el.innerHTML = fn(s.activeBiz);
+  renderCloud();
+  document.getElementById("footer").textContent =
+    "CENTAURI WORLD LLC · KEYPR ON COMPANY · " +
+    new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase();
+}
+function renderLogos() {
+  document.querySelectorAll("header .logo-wrap, #splash .logo-wrap").forEach(w => w.innerHTML = logoHTML());
+  // watermark: custom photo background if set, otherwise the BIG BUSINESS wordmark
+  const wm = document.getElementById("watermark");
+  if (_state.bg) {
+    wm.style.opacity = "0.16";
+    wm.innerHTML = `<img src="${_state.bg}" style="width:100%;height:100%;object-fit:cover" alt="">`;
+  } else {
+    wm.style.opacity = "0.05";
+    wm.innerHTML = `<div class="logo-wrap" style="width:min(520px,85vw)">${logoHTML()}</div>`;
+  }
+  document.getElementById("bgCorner").innerHTML = _state.bg
+    ? `<button class="btn btn-ghost" style="font-size:11px;padding:4px 9px" title="Change background image" onclick="document.getElementById('bgFile').click()">⛰</button>
+       <button class="btn btn-ghost" style="font-size:11px;padding:4px 9px" title="Remove background image" onclick="clearBg()">✕</button>`
+    : `<button class="btn btn-ghost" style="font-size:11px;padding:4px 9px" title="Set background image" onclick="document.getElementById('bgFile').click()">⛰ BG</button>`;
+}
+function clearBg(){ _state.bg = null; commit(); }
+function tabLabel(id, fallback){ return _state.tabNames[id] || fallback; }
+function bizLabel(id){ return _state.bizNames[id] || BIZ[id].name; }
+function renameTab(id){
+  const cur = tabLabel(id, TABS.find(([t])=>t===id)[1]);
+  const n = prompt("Rename tab — emoji + name (leave empty to reset):", cur);
+  if (n===null) return;
+  if (n.trim()) _state.tabNames[id]=n.trim(); else delete _state.tabNames[id];
+  commit();
+}
+function renameBiz(id){
+  const n = prompt("Rename business tab — emoji + name (leave empty to reset):", bizLabel(id));
+  if (n===null) return;
+  if (n.trim()) _state.bizNames[id]=n.trim(); else delete _state.bizNames[id];
+  commit();
+}
+function renderBizTabs() {
+  const s = _state;
+  document.getElementById("bizTabs").innerHTML = Object.entries(BIZ).map(([id,b]) => {
+    const active = s.activeBiz === id;
+    const dash = ui.renameMode ? "border-style:dashed;" : "";
+    return `<div class="biz-tab ${active?'active':''}" onclick="${ui.renameMode?`renameBiz('${id}')`:`setBiz('${id}')`}"
+      style="display:flex;align-items:center;justify-content:center;${dash}${active?`border-color:${b.accent};background:${b.accent}18;color:${b.accent};`:''}"><span>${esc(bizLabel(id))}</span></div>`;
+  }).join("");
+}
+function renderSubTabs() {
+  const s = _state;
+  document.getElementById("subTabs").innerHTML = TABS.map(([id,label]) => {
+    const dash = ui.renameMode ? "border-style:dashed;" : "";
+    const gold = id==="strength"
+      ? `style="${dash}border-color:var(--gold);color:var(--gold);${s.activeTab===id?'background:var(--gold-dim);font-weight:700;':''}"`
+      : (dash?`style="${dash}"`:"");
+    return `<button class="sub-tab ${s.activeTab===id?'active':''}" ${gold} onclick="${ui.renameMode?`renameTab('${id}')`:`setTab('${id}')`}">${esc(tabLabel(id,label))}</button>`;
+  }).join("") + `<button class="sub-tab" title="${ui.renameMode?'Done renaming':'Rename tabs — then click any tab to rename it'}"
+    style="${ui.renameMode?'border-color:var(--green);color:var(--green);background:rgba(16,185,129,0.12);':''}"
+    onclick="ui.renameMode=!ui.renameMode;render()">${ui.renameMode?'✅ DONE':'✎'}</button>`;
+}
+function setBiz(id){ _state.activeBiz = id; _state.activeTab = "strength"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
+function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
+
+// ========== PROJECTS ==========
+function projStats(biz) {
+  const ps = _state.projects.filter(p=>p.biz===biz);
+  const steps = ps.flatMap(p=>p.steps);
+  const done = steps.filter(x=>x.status==="done").length;
+  const waiting = steps.filter(x=>x.status==="waiting").length;
+  return { pct: steps.length?Math.round(done/steps.length*100):0, done, total: steps.length, waiting };
+}
+function ring(pct,color,size=48){
+  const r=(size-6)/2, c=2*Math.PI*r, o=c-(pct/100)*c;
+  return `<svg width="${size}" height="${size}" style="transform:rotate(-90deg);flex-shrink:0">
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="rgba(255,255,255,0.06)" stroke-width="3"/>
+    <circle cx="${size/2}" cy="${size/2}" r="${r}" fill="none" stroke="${color}" stroke-width="3"
+      stroke-dasharray="${c}" stroke-dashoffset="${o}" style="stroke-linecap:round;transition:stroke-dashoffset 1s ease"/>
+    <text x="50%" y="50%" text-anchor="middle" dominant-baseline="central"
+      style="transform:rotate(90deg);transform-origin:50% 50%;fill:${color};font-size:13px;font-weight:600">${pct}%</text>
+  </svg>`;
+}
+function rProjects(biz) {
+  const s=_state, ps=s.projects.filter(p=>p.biz===biz), st=projStats(biz);
+  let html = `
+  <div class="stats">
+    <div class="stat"><div class="lbl">📊 OVERALL</div><div class="val" style="color:${BIZ[biz].accent}">${st.pct}%</div></div>
+    <div class="stat"><div class="lbl">✅ STEPS DONE</div><div class="val" style="color:var(--green)">${st.done}/${st.total}</div></div>
+    <div class="stat"><div class="lbl">⏳ WAITING ON</div><div class="val" style="color:var(--amber)">${st.waiting}</div></div>
+  </div>
+  <div style="height:3px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-bottom:14px;">
+    <div style="height:100%;width:${st.pct}%;background:${BIZ[biz].accent};transition:width 1s ease"></div>
+  </div>`;
+  if (ui.showNewProject) {
+    html += `<div class="form-panel">
+      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent);">NEW PROJECT — ${BIZ[biz].name}</div>
+      <input id="np-title" placeholder="Project title">
+      <input id="np-sub" placeholder="Subtitle / description">
+      <div class="grid2">
+        <input id="np-brand" placeholder="Brand tag (e.g. WALMART)">
+        <select id="np-status">
+          <option value="new">New</option><option value="in-progress">In Progress</option>
+          <option value="issue">Needs Action</option><option value="nearly-done">Nearly Done</option>
+        </select>
+      </div>
+      <div class="row">
+        <button class="btn btn-red" style="flex:1" onclick="addProject('${biz}')">💾 SAVE PROJECT</button>
+        <button class="btn btn-ghost" onclick="ui.showNewProject=false;render()">CANCEL</button>
+      </div>
+    </div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showNewProject=true;render()">➕ NEW PROJECT</button>`;
+  }
+  if (!ps.length) html += `<div class="empty">No projects for ${BIZ[biz].short} yet.</div>`;
+  html += `<div class="col" style="gap:12px">` + ps.map(p=>projCard(p)).join("") + `</div>`;
+  return html;
+}
+function projCard(p) {
+  const meta = STATUS_META[p.status]||STATUS_META["new"];
+  const open = _state.openProject===p.id;
+  const done = p.steps.filter(x=>x.status==="done").length;
+  const pct = p.steps.length?Math.round(done/p.steps.length*100):0;
+  const waiting = p.steps.find(x=>x.status==="waiting");
+  const bc = BIZ[p.biz].accent;
+  let html = `<div class="card" style="${open?`border-color:${meta.accent};background:${meta.accent}14;`:''}">
+    <div style="padding:16px 18px;display:flex;align-items:center;gap:14px;">
+      <div style="cursor:pointer;display:flex;align-items:center;gap:14px;flex:1;min-width:0" onclick="toggleProject('${p.id}')">
+        ${ring(pct,meta.accent)}
+        <div style="flex:1;min-width:0">
+          <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;margin-bottom:4px;">
+            <span class="chip" style="background:${bc}22;color:${bc};border:1px solid ${bc}44">${esc(p.brand)}</span>
+            <span class="chip" style="background:${meta.accent}22;color:${meta.accent};border:1px solid ${meta.accent}44">${meta.label}</span>
+            <span style="font-size:12px;color:#8794ab;margin-left:auto">${meta.priority}</span>
+          </div>
+          <div class="syne" style="font-size:17px;font-weight:700;color:#f1f5f9;margin-bottom:2px">${esc(p.title)}</div>
+          <div style="font-size:13px;color:#8794ab">${esc(p.subtitle)}</div>
+        </div>
+      </div>
+      <button class="del-x" title="Delete project" onclick="delProject('${p.id}')">🗑</button>
+      <div style="font-size:20px;color:#9aa8c2;cursor:pointer;transform:rotate(${open?180:0}deg);transition:transform .3s" onclick="toggleProject('${p.id}')">⌄</div>
+    </div>`;
+  if (waiting) html += `
+    <div style="margin:0 16px ${open?0:16}px;padding:10px 14px;background:rgba(245,158,11,0.08);border:1px solid rgba(245,158,11,0.25);border-radius:8px;display:flex;gap:10px;align-items:center;">
+      <div style="width:7px;height:7px;border-radius:50%;background:var(--amber);flex-shrink:0;animation:pulse 2s infinite"></div>
+      <div><div style="font-size:12px;color:var(--amber);letter-spacing:0.12em;margin-bottom:2px">WAITING ON</div>
+      <div style="font-size:14px;color:#fde68a">${esc(waiting.detail)}</div>
+      <div style="font-size:13px;color:#92400e">${esc(waiting.sub)}</div></div>
+    </div>`;
+  if (open) {
+    html += `<div style="padding:14px 16px 16px"><div class="col">`;
+    html += p.steps.map(step=>{
+      const sc = STEP_COLORS[step.status];
+      return `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:8px;padding:10px 14px;display:flex;gap:12px;align-items:flex-start">
+        <div onclick="cycleStep('${p.id}',${step.id})" title="Click to cycle status"
+          style="width:24px;height:24px;border-radius:6px;background:${step.status==='upcoming'?'rgba(255,255,255,0.05)':sc.text+'22'};border:1px solid ${sc.border};display:flex;align-items:center;justify-content:center;font-size:13px;color:${sc.text};flex-shrink:0;cursor:pointer;user-select:none">
+          ${step.status==="done"?"✓":step.id}</div>
+        <div style="flex:1;min-width:0">
+          <div style="font-size:15px;font-weight:500;color:${step.status==='upcoming'?'#8794ab':'#e2e8f0'};margin-bottom:2px">${esc(step.label)}</div>
+          <div style="font-size:14px;color:${step.status==='upcoming'?'#9aa8c2':'#94a3b8'}">${esc(step.detail)}</div>
+          ${step.sub?`<div style="font-size:13px;color:${step.status==='done'?'#065f46':step.status==='waiting'?'#92400e':'#1e293b'};margin-top:2px">${esc(step.sub)}</div>`:''}
+        </div>
+        <button class="del-x" onclick="delStep('${p.id}',${step.id})">×</button>
+      </div>`;
+    }).join("");
+    if (ui.addStepFor===p.id) {
+      html += `<div style="background:rgba(59,130,246,0.06);border:1px dashed rgba(59,130,246,0.3);border-radius:8px;padding:12px" class="col">
+        <input id="st-label" placeholder="Step label">
+        <input id="st-detail" placeholder="Detail">
+        <input id="st-sub" placeholder="Sub / timing (optional)">
+        <div class="row">
+          <select id="st-status" style="flex:1"><option value="upcoming">Upcoming</option><option value="waiting">Waiting</option><option value="done">Done</option></select>
+          <button class="btn btn-red" onclick="addStep('${p.id}')">ADD</button>
+          <button class="btn btn-ghost" onclick="ui.addStepFor=null;render()">✕</button>
+        </div></div>`;
+    } else {
+      html += `<button class="btn-dashed" onclick="ui.addStepFor='${p.id}';render()">➕ ADD STEP</button>`;
+    }
+    html += `</div></div>`;
+  }
+  return html + `</div>`;
+}
+function toggleProject(id){ _state.openProject = _state.openProject===id?null:id; commit(); }
+function delProject(id){ if(!confirm("Delete this project?"))return; _state.projects=_state.projects.filter(p=>p.id!==id); commit(); }
+function addProject(biz){
+  const t=document.getElementById("np-title").value.trim(); if(!t) return;
+  const p={ id:uid("proj"), biz, brand:(document.getElementById("np-brand").value.trim()||"CUSTOM").toUpperCase(),
+    title:t, subtitle:document.getElementById("np-sub").value.trim()||"New project",
+    status:document.getElementById("np-status").value, steps:[] };
+  _state.projects.push(p); _state.openProject=p.id; ui.showNewProject=false; commit();
+}
+function addStep(pid){
+  const l=document.getElementById("st-label").value.trim(); if(!l) return;
+  const p=_state.projects.find(x=>x.id===pid);
+  const nid=(p.steps.length?Math.max(...p.steps.map(s=>s.id)):0)+1;
+  p.steps.push({ id:nid, label:l, detail:document.getElementById("st-detail").value.trim()||"—",
+    sub:document.getElementById("st-sub").value.trim(), status:document.getElementById("st-status").value });
+  ui.addStepFor=null; commit();
+}
+function delStep(pid,sid){ const p=_state.projects.find(x=>x.id===pid); p.steps=p.steps.filter(s=>s.id!==sid); commit(); }
+function cycleStep(pid,sid){
+  const cyc={upcoming:"waiting",waiting:"done",done:"upcoming"};
+  const p=_state.projects.find(x=>x.id===pid);
+  const st=p.steps.find(s=>s.id===sid); st.status=cyc[st.status]; commit();
+}
+
+// ========== PRODUCTS (WFS tracker sync) ==========
+// Pulls from the same centauri-wfs-data.json your WFS Profit Tracker
+// auto-saves (Connect Folder once), from an exported tracker JSON, or a URL.
+const WFS_FILE = "centauri-wfs-data.json";
+const money = n => "$" + (Number(n)||0).toLocaleString("en-US",{minimumFractionDigits:2,maximumFractionDigits:2});
+
+// -- tiny IndexedDB store to persist the folder handle across sessions --
+function idb() {
+  return new Promise((res, rej) => {
+    const r = indexedDB.open("bigboss-fs", 1);
+    r.onupgradeneeded = () => r.result.createObjectStore("handles");
+    r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+  });
+}
+async function idbSet(k, v) { const db = await idb(); return new Promise((res,rej)=>{ const t=db.transaction("handles","readwrite"); t.objectStore("handles").put(v,k); t.oncomplete=res; t.onerror=()=>rej(t.error); }); }
+async function idbGet(k) { const db = await idb(); return new Promise((res,rej)=>{ const t=db.transaction("handles","readonly"); const q=t.objectStore("handles").get(k); q.onsuccess=()=>res(q.result); q.onerror=()=>rej(q.error); }); }
+
+async function connectWfsFolder() {
+  if (!window.showDirectoryPicker) { ui.catStatus = "Folder connect needs Chrome, Edge, or Brave — use UPDATE to pick an exported JSON instead."; render(); return; }
+  try {
+    const h = await window.showDirectoryPicker({ mode: "read" });
+    await idbSet("wfsdir", h);
+    ui.catStatus = "Folder connected — click UPDATE to pull " + WFS_FILE;
+  } catch(e) { if (e.name !== "AbortError") ui.catStatus = "Couldn't connect folder: " + e.message; }
+  render();
+}
+async function readWfsFromFolder() {
+  const h = await idbGet("wfsdir"); if (!h) return null;
+  let perm = await h.queryPermission({ mode: "read" });
+  if (perm !== "granted") perm = await h.requestPermission({ mode: "read" });
+  if (perm !== "granted") return null;
+  const fh = await h.getFileHandle(WFS_FILE);
+  return JSON.parse(await (await fh.getFile()).text());
+}
+async function updateCatalog(biz) {
+  ui.catStatus = "Updating…"; render();
+  // 1) connected tracker folder (Centauri's WFS data file)
+  if (biz === "centauri") {
+    try { const data = await readWfsFromFolder(); if (data) return applyCatalog(biz, data, "connected folder"); }
+    catch(e) { /* fall through */ }
+  }
+  // 2) configured URL
+  const url = _state.catalogMeta[biz].srcUrl;
+  if (url) {
+    try { const r = await fetch(url, { cache: "no-store" }); if (r.ok) return applyCatalog(biz, await r.json(), "URL"); }
+    catch(e) { /* fall through */ }
+  }
+  // 3) pick an exported tracker JSON
+  ui.catStatus = "Pick your tracker JSON (Export button in the tracker, or " + WFS_FILE + ")";
+  render();
+  const inp = document.getElementById("catFile"); inp.dataset.biz = biz; inp.click();
+}
+function applyCatalog(biz, data, source) {
+  const list = Array.isArray(data) ? data : (data.products || []);
+  _state.catalog[biz] = list.map(p => ({
+    id: p.id || uid("prod"), name: p.name || "Unnamed product", brand: p.brand || "",
+    sku: p.sku || "", itemid: p.itemid || "", gtin: p.gtin || "", url: p.url || "",
+    price: Number(p.price)||0, margin: Number(p.margin)||0, qty: Number(p.qty)||0,
+    estsales: Number(p.estsales)||0, listingscore: Number(p.listingscore)||0,
+    status: p.status || "Published", notes: p.notes || "",
+  }));
+  const m = _state.catalogMeta[biz];
+  m.lastSync = Date.now(); m.source = source;
+  m.shipments = Array.isArray(data.shipments) ? data.shipments.length : 0;
+  ui.catStatus = "✓ Pulled " + _state.catalog[biz].length + " product(s) from " + source;
+  ui.editProd = null; ui.showForm = {};
+  commit();
+}
+function catStats(biz) {
+  const rows = _state.catalog[biz];
+  const units = rows.reduce((a,p)=>a+p.qty, 0);
+  const profit = rows.reduce((a,p)=>a+p.price*p.qty*p.margin/100, 0);
+  return { skus: rows.length, units, profit };
+}
+function lqsColor(v){ return v>=80 ? "var(--green)" : v>=60 ? "var(--amber)" : "#ef4444"; }
+function prodForm(biz, p) {
+  const v = k => esc(p ? p[k] : "");
+  return `<div class="form-panel">
+    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">${p?"EDIT":"NEW"} PRODUCT — ${BIZ[biz].name}</div>
+    <input id="pr-name" placeholder="Product name" value="${v("name")}">
+    <div class="grid2"><input id="pr-brand" placeholder="Brand" value="${v("brand")}"><input id="pr-sku" placeholder="SKU" value="${v("sku")}"></div>
+    <div class="grid2"><input id="pr-price" type="number" step="0.01" placeholder="Sale price $" value="${p?p.price:""}"><input id="pr-margin" type="number" step="0.1" placeholder="Margin %" value="${p?p.margin:""}"></div>
+    <div class="grid2"><input id="pr-qty" type="number" placeholder="Qty on hand" value="${p?p.qty:""}"><input id="pr-lqs" type="number" placeholder="Listing score %" value="${p?p.listingscore:""}"></div>
+    <div class="grid2"><input id="pr-estsales" type="number" placeholder="Est. sales /mo" value="${p?p.estsales:""}">
+      <select id="pr-status">${["Published","Draft","Processing","Suspended","Retired"].map(s=>`<option ${p&&p.status===s?"selected":""}>${s}</option>`).join("")}</select></div>
+    <input id="pr-url" placeholder="Listing URL" value="${v("url")}">
+    <input id="pr-notes" placeholder="Notes" value="${v("notes")}">
+    <div class="row">
+      <button class="btn btn-red" style="flex:1" onclick="saveProd('${biz}',${p?`'${p.id}'`:"null"})">💾 SAVE PRODUCT</button>
+      <button class="btn btn-ghost" onclick="ui.editProd=null;ui.showForm.prod=false;render()">CANCEL</button>
+    </div></div>`;
+}
+function rCatalog(biz) {
+  const rows = _state.catalog[biz], m = _state.catalogMeta[biz], st = catStats(biz);
+  const isK = biz === "keypr";
+  let html = `<div style="display:flex;align-items:center;gap:10px;margin-bottom:12px">
+    <div class="section-title" style="margin:0">📦 PRODUCT PORTFOLIO — ${BIZ[biz].name}</div>
+  </div>
+  <div class="stats">
+    <div class="stat"><div class="lbl">🏷️ SKUS</div><div class="val" style="color:${BIZ[biz].accent}">${st.skus}</div></div>
+    <div class="stat"><div class="lbl">📦 ON-HAND UNITS</div><div class="val" style="color:var(--blue)">${st.units}</div></div>
+    <div class="stat"><div class="lbl">💰 AVAIL. EST. PROFIT</div><div class="val" style="color:var(--green)">$${Math.round(st.profit).toLocaleString("en-US")}</div></div>
+  </div>
+  <div class="row" style="margin-bottom:10px">
+    <button class="btn btn-red" style="flex:2" onclick="updateCatalog('${biz}')">🔄 UPDATE</button>
+    ${biz==="centauri"?`<button class="btn btn-ghost" style="flex:1" onclick="connectWfsFolder()">📂 CONNECT FOLDER</button>`:""}
+    <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.url=!ui.showForm.url;render()">⚙ URL</button>
+  </div>`;
+  if (ui.showForm.url) {
+    html += `<div class="form-panel">
+      <div style="font-size:12px;letter-spacing:0.15em;color:var(--accent)">DATA URL (optional — a published ${WFS_FILE} or exported JSON)</div>
+      <input id="cat-url" placeholder="https://…/${WFS_FILE}" value="${esc(m.srcUrl)}">
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="saveCatUrl('${biz}')">💾 SAVE URL</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.url=false;render()">CANCEL</button></div></div>`;
+  }
+  if (ui.catStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.catStatus)}</div>`;
+  if (m.lastSync) html += `<div style="font-size:12px;color:#8794ab;letter-spacing:0.08em;margin-bottom:12px">LAST UPDATE: ${new Date(m.lastSync).toLocaleString("en-US",{month:"short",day:"numeric",hour:"numeric",minute:"2-digit"}).toUpperCase()} · SOURCE: ${esc((m.source||"").toUpperCase())}${m.shipments?` · ${m.shipments} SHIPMENT(S) IN FILE`:""}</div>`;
+  if (ui.showForm.prod && !ui.editProd) html += prodForm(biz, null);
+  else html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.prod=true;ui.editProd=null;render()">➕ ADD PRODUCT MANUALLY</button>`;
+  if (!rows.length) html += `<div class="empty">No products yet.<br><br>${biz==="centauri"
+    ? "Click <b>🔄 UPDATE</b> to pull from your WFS Profit Tracker — connect the folder it auto-saves to (your Obsidian publish folder), or pick an exported JSON."
+    : "Click <b>🔄 UPDATE</b> to import a tracker/JSON export, or add products manually."}</div>`;
+  html += `<div class="col" style="gap:10px">` + rows.map(p => {
+    if (ui.editProd === p.id) return prodForm(biz, p);
+    const unitProfit = p.price * p.margin / 100;
+    const stColor = p.status==="Published" ? "var(--green)" : p.status==="Suspended" ? "#ef4444" : "var(--amber)";
+    return `<div class="card" style="padding:14px 16px">
+      <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-bottom:6px">
+        ${p.brand?`<span class="chip" style="background:${BIZ[biz].accent}22;color:${BIZ[biz].accent};border:1px solid ${BIZ[biz].accent}44">${esc(p.brand.toUpperCase())}</span>`:""}
+        <span class="chip" style="background:${stColor}22;color:${stColor};border:1px solid ${stColor}44">${esc(p.status.toUpperCase())}</span>
+        ${p.qty===0?`<span class="chip" style="background:rgba(239,68,68,0.15);color:#ef4444;border:1px solid rgba(239,68,68,0.4)">OUT OF STOCK</span>`:""}
+        <span style="margin-left:auto;display:flex;gap:2px">
+          <button class="del-x" title="Edit" onclick="ui.editProd='${p.id}';ui.showForm.prod=false;render()">✎</button>
+          <button class="del-x" title="Delete" onclick="delProd('${biz}','${p.id}')">×</button>
+        </span>
+      </div>
+      <div class="syne" style="font-size:16px;font-weight:700;color:#f1f5f9;margin-bottom:3px">${
+        p.url?`<a href="${esc(p.url)}" target="_blank" rel="noopener" style="color:inherit;text-decoration:none">${esc(p.name)} ↗</a>`:esc(p.name)}</div>
+      <div style="font-size:13px;color:#8794ab;margin-bottom:8px">${[p.sku&&"SKU "+p.sku, p.itemid&&"ID "+p.itemid, p.gtin&&"GTIN "+p.gtin].filter(Boolean).map(esc).join(" · ")||"—"}</div>
+      <div style="display:grid;grid-template-columns:repeat(4,1fr);gap:6px;margin-bottom:${p.notes?8:0}px">
+        <div><div style="font-size:11px;color:#9aa8c2;letter-spacing:0.1em">PRICE</div><div style="font-size:15px;color:#e2e8f0">${money(p.price)}</div></div>
+        <div><div style="font-size:11px;color:#9aa8c2;letter-spacing:0.1em">QTY</div><div style="font-size:15px;color:${p.qty===0?"#ef4444":"#e2e8f0"}">${p.qty}</div></div>
+        <div><div style="font-size:11px;color:#9aa8c2;letter-spacing:0.1em">PROFIT/UNIT</div><div style="font-size:15px;color:var(--green)">${money(unitProfit)} <span style="color:#8794ab;font-size:12px">(${p.margin}%)</span></div></div>
+        <div><div style="font-size:11px;color:#9aa8c2;letter-spacing:0.1em">LQS</div><div style="font-size:15px;color:${lqsColor(p.listingscore)}">${p.listingscore||"—"}${p.listingscore?"%":""}</div></div>
+      </div>
+      ${p.estsales?`<div style="font-size:12px;color:#8794ab;margin-bottom:${p.notes?4:0}px">Est. ${p.estsales} sales/mo · potential ${money(unitProfit*p.estsales)}/mo at full velocity</div>`:""}
+      ${p.notes?`<div style="font-size:13px;color:#9aa7bd;border-top:1px solid rgba(255,255,255,0.05);padding-top:7px">${esc(p.notes)}</div>`:""}
+    </div>`;
+  }).join("") + `</div>`;
+  return html;
+}
+function saveCatUrl(biz){ _state.catalogMeta[biz].srcUrl = document.getElementById("cat-url").value.trim(); ui.showForm.url=false; ui.catStatus=_state.catalogMeta[biz].srcUrl?"URL saved — UPDATE will try it after the connected folder.":"URL cleared."; commit(); }
+function saveProd(biz, id){
+  const g = k => document.getElementById("pr-"+k).value.trim();
+  const num = k => Number(document.getElementById("pr-"+k).value)||0;
+  const name = g("name"); if (!name) return;
+  const obj = { name, brand:g("brand"), sku:g("sku"), price:num("price"), margin:num("margin"),
+    qty:num("qty"), listingscore:num("lqs"), estsales:num("estsales"),
+    status:document.getElementById("pr-status").value, url:g("url"), notes:g("notes") };
+  if (id) { const p=_state.catalog[biz].find(x=>x.id===id); Object.assign(p, obj); }
+  else _state.catalog[biz].push({ id:uid("prod"), itemid:"", gtin:"", ...obj });
+  ui.editProd=null; ui.showForm.prod=false; commit();
+}
+function delProd(biz,id){ if(!confirm("Delete this product?"))return; _state.catalog[biz]=_state.catalog[biz].filter(p=>p.id!==id); commit(); }
+
+// ========== FINANCIALS ==========
+function rFinancials(biz) {
+  const fin = _state.fin[biz];
+  let html = `<div class="section-title">🏦 BANKING &amp; CREDIT — ${BIZ[biz].name}</div>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg','fin')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf','fin')">⚡ AUTOFILL FROM PDF 📄</button>
+  </div>
+  <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">Feed it a bank statement, card statement, or credit report — it reads locally in your browser and you review before anything saves. 🔒 Stays on this device.</div>`;
+  if (ui.afStatus && _state.activeTab==="financials") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += afPanelHTML(biz, "fin");
+  for (const [gid, title, fields] of FIN_GROUPS) {
+    const filled = fields.filter(([k])=>fin[k]).length;
+    const editing = ui.editGroup === "fin-"+gid;
+    html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled?`border-left:3px solid ${BIZ[biz].accent};`:""}">
+      <div style="display:flex;align-items:center;gap:8px;${editing||filled?"margin-bottom:10px;":""}">
+        <div style="font-size:12px;letter-spacing:0.22em;font-weight:800;color:${biz==="centauri"?"#1A6AE8":"var(--accent)"}">${title}</div>
+        <span class="chip" style="background:rgba(255,255,255,0.05);color:${filled===fields.length?"var(--green)":"var(--muted)"};border:1px solid rgba(255,255,255,0.1)">${filled}/${fields.length}</span>
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'fin-${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
+      </div>`;
+    if (editing) {
+      html += `<div class="col">` + fields.map(([k,label])=>`
+        <div><div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
+        <input id="fin-${k}" value="${esc(fin[k]||"")}"></div>`).join("") + `
+        <button class="btn btn-red" onclick="saveFinGroup('${biz}','${gid}')">💾 SAVE ${title}</button>
+      </div>`;
+    } else if (filled) {
+      html += fields.filter(([k])=>fin[k]).map(([k,label])=>`
+        <div style="margin-bottom:9px">
+          <div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
+          <div style="font-size:15px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${esc(fin[k])}</div>
+        </div>`).join("");
+    }
+    html += `</div>`;
+  }
+  // legacy metrics (from the old Financial Snapshot) — kept until you delete them
+  const rows = _state.financials[biz]||[];
+  if (rows.length){
+    html += docSecHdr("oldfin", "🗃 OLD METRICS (LEGACY)", rows.length, !!ui.docOpen.oldfin);
+    if (ui.docOpen.oldfin) html += `<div class="col">` + rows.map(r=>`
+      <div class="card" style="padding:14px 16px;display:flex;align-items:center;gap:14px;">
+        <div style="flex:1;min-width:0">
+          <div style="font-size:13px;color:var(--muted);letter-spacing:0.08em;margin-bottom:3px">${esc(r.label)}</div>
+          <div class="syne" style="font-size:24px;font-weight:800;color:${BIZ[biz].accent}">${esc(r.value)}</div>
+          ${r.note?`<div style="font-size:13px;color:#8794ab;margin-top:3px">${esc(r.note)}</div>`:''}
+        </div>
+        <button class="del-x" onclick="delFin('${biz}','${r.id}')">×</button>
+      </div>`).join("") + `</div>`;
+  }
+  return html;
+}
+function saveFinGroup(biz, gid){
+  const fields = FIN_GROUPS.find(([g])=>g===gid)[2];
+  fields.forEach(([k])=>{ _state.fin[biz][k] = document.getElementById("fin-"+k).value.trim(); });
+  ui.editGroup = null; commit();
+}
+function delFin(biz,id){ _state.financials[biz]=_state.financials[biz].filter(r=>r.id!==id); commit(); }
+
+// ========== DEADLINES ==========
+function daysUntil(d){ return Math.ceil((new Date(d+"T23:59:59") - new Date())/86400000); }
+function rDeadlines(biz) {
+  const rows=_state.deadlines.filter(d=>d.biz===biz).sort((a,b)=>a.date.localeCompare(b.date));
+  let html = `<div class="section-title">⏰ DEADLINES &amp; REMINDERS — ${BIZ[biz].name}</div>`;
+  if (ui.showForm.dl) {
+    html += `<div class="form-panel">
+      <input id="dl-title" placeholder="What's due? (e.g. Restock UNI5)">
+      <div class="grid2"><input id="dl-date" type="date"><input id="dl-note" placeholder="Note (optional)"></div>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDl('${biz}')">💾 SAVE DEADLINE</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.dl=false;render()">CANCEL</button></div></div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.dl=true;render()">➕ ADD DEADLINE</button>`;
+  }
+  if (!rows.length) html += `<div class="empty">No deadlines tracked for ${BIZ[biz].short}.</div>`;
+  html += `<div class="col">` + rows.map(d=>{
+    const n=daysUntil(d.date);
+    const badge = d.done ? `<span class="chip" style="background:rgba(16,185,129,0.15);color:var(--green);border:1px solid rgba(16,185,129,0.4)">DONE</span>`
+      : n<0 ? `<span class="chip" style="background:rgba(239,68,68,0.14);color:#ef4444;border:1px solid rgba(239,68,68,0.4)">${-n}D OVERDUE</span>`
+      : n===0 ? `<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">TODAY</span>`
+      : `<span class="chip" style="background:rgba(59,130,246,0.15);color:var(--blue);border:1px solid rgba(59,130,246,0.4)">IN ${n}D</span>`;
+    return `<div class="card" style="padding:13px 16px;display:flex;align-items:center;gap:12px;${d.done?'opacity:0.55':''}">
+      <div onclick="toggleDl('${d.id}')" title="Toggle done" style="width:22px;height:22px;border-radius:6px;border:1px solid ${d.done?'var(--green)':'rgba(255,255,255,0.15)'};display:flex;align-items:center;justify-content:center;color:var(--green);cursor:pointer;flex-shrink:0">${d.done?"✓":""}</div>
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;color:#e2e8f0;margin-bottom:2px;${d.done?'text-decoration:line-through':''}">${esc(d.title)}</div>
+        <div style="font-size:13px;color:#8794ab">${new Date(d.date+"T12:00").toLocaleDateString("en-US",{weekday:"short",month:"short",day:"numeric",year:"numeric"})}${d.note?` · ${esc(d.note)}`:''}</div>
+      </div>
+      ${badge}<button class="del-x" onclick="delDl('${d.id}')">×</button>
+    </div>`;
+  }).join("") + `</div>`;
+  return html;
+}
+function addDl(biz){
+  const t=document.getElementById("dl-title").value.trim(), dt=document.getElementById("dl-date").value;
+  if(!t||!dt) return;
+  _state.deadlines.push({ id:uid("dl"), biz, title:t, date:dt, note:document.getElementById("dl-note").value.trim(), done:false });
+  ui.showForm.dl=false; commit();
+}
+function toggleDl(id){ const d=_state.deadlines.find(x=>x.id===id); d.done=!d.done; commit(); }
+function delDl(id){ _state.deadlines=_state.deadlines.filter(x=>x.id!==id); commit(); }
+
+// ========== CONTACTS ==========
+function rContacts(biz) {
+  const tab = ui.contactTab;
+  let html = `<div class="section-title">👥 CONTACTS — ${BIZ[biz].name}</div>
+  <div class="sub-tabs" style="margin-bottom:14px">
+    <button class="sub-tab ${tab==='list'?'active':''}" onclick="ui.contactTab='list';render()">📇 CONTACT LIST</button>
+    <button class="sub-tab ${tab==='links'?'active':''}" onclick="ui.contactTab='links';render()">🔗 CROSS-BUSINESS LINKS</button>
+  </div>`;
+  if (tab==="links") return html + rLinks();
+  const rows=_state.contacts.filter(c=>c.biz===biz);
+  if (ui.showForm.ct) {
+    html += `<div class="form-panel">
+      <input id="ct-name" placeholder="Name / company">
+      <div class="grid2"><input id="ct-role" placeholder="Role (e.g. Supplier, Lab)"><input id="ct-phone" placeholder="Phone"></div>
+      <input id="ct-email" placeholder="Email">
+      <input id="ct-notes" placeholder="Notes">
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addContact('${biz}')">💾 SAVE CONTACT</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.ct=false;render()">CANCEL</button></div></div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.ct=true;render()">➕ ADD CONTACT</button>`;
+  }
+  if (!rows.length) html += `<div class="empty">No contacts for ${BIZ[biz].short} yet.</div>`;
+  html += `<div class="col">` + rows.map(c=>{
+    const linked=_state.links.filter(l=>l.a===c.id||l.b===c.id).length;
+    return `<div class="card" style="padding:14px 16px;display:flex;gap:12px;align-items:flex-start">
+      <div style="width:36px;height:36px;border-radius:10px;background:${BIZ[biz].accent}18;border:1px solid ${BIZ[biz].accent}44;display:flex;align-items:center;justify-content:center;color:${BIZ[biz].accent};font-weight:600;flex-shrink:0">${esc(c.name.charAt(0).toUpperCase())}</div>
+      <div style="flex:1;min-width:0">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:15px;font-weight:500;color:#f1f5f9">${esc(c.name)}</span>
+          ${c.role?`<span class="chip" style="background:rgba(139,92,246,0.15);color:var(--purple);border:1px solid rgba(139,92,246,0.35)">${esc(c.role.toUpperCase())}</span>`:''}
+          ${linked?`<span class="chip" style="background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-brd)">🔗 LINKED</span>`:''}
+        </div>
+        <div style="font-size:13px;color:#9aa7bd;margin-top:3px">${[c.phone,c.email].filter(Boolean).map(esc).join(" · ")||"—"}</div>
+        ${c.notes?`<div style="font-size:13px;color:#8794ab;margin-top:3px">${esc(c.notes)}</div>`:''}
+      </div>
+      <button class="del-x" onclick="delContact('${c.id}')">×</button>
+    </div>`;
+  }).join("") + `</div>`;
+  return html;
+}
+function rLinks() {
+  const cs=id=>_state.contacts.find(c=>c.id===id);
+  const cent=_state.contacts.filter(c=>c.biz==="centauri"), key=_state.contacts.filter(c=>c.biz==="keypr");
+  let html="";
+  if (!cent.length || !key.length) {
+    html += `<div class="empty" style="margin-bottom:12px">To link contacts across businesses, add at least one contact to each business first.<br><br>
+      Centauri contacts: ${cent.length} · Keypr contacts: ${key.length}</div>`;
+  } else if (ui.showForm.lk) {
+    html += `<div class="form-panel">
+      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">LINK A CONTACT ACROSS BUSINESSES</div>
+      <div class="grid2">
+        <div><div style="font-size:12px;color:${BIZ.centauri.accent};letter-spacing:0.1em;margin-bottom:5px">CENTAURI WORLD</div>
+        <select id="lk-a">${cent.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
+        <div><div style="font-size:12px;color:${BIZ.keypr.accent};letter-spacing:0.1em;margin-bottom:5px">KEYPR ON</div>
+        <select id="lk-b">${key.map(c=>`<option value="${c.id}">${esc(c.name)}</option>`).join("")}</select></div>
+      </div>
+      <input id="lk-note" placeholder="Relationship note (e.g. same supplier, shared 3PL)">
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addLink()">🔗 CREATE LINK</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.lk=false;render()">CANCEL</button></div></div>`;
+  } else {
+    html += `<button class="btn-dashed" style="margin-bottom:12px" onclick="ui.showForm.lk=true;render()">🔗 LINK CONTACTS</button>`;
+  }
+  if (!_state.links.length) html += `<div class="empty">No cross-business links yet. Links connect a Centauri contact with a Keypr contact — useful for shared suppliers, labs, or service providers.</div>`;
+  html += `<div class="col">` + _state.links.map(l=>{
+    const a=cs(l.a), b=cs(l.b);
+    if(!a||!b) return "";
+    return `<div class="card" style="padding:14px 16px">
+      <div style="display:flex;align-items:center;gap:10px;flex-wrap:wrap">
+        <span class="chip" style="background:${BIZ.centauri.accent}18;color:${BIZ.centauri.accent};border:1px solid ${BIZ.centauri.accent}44">${esc(a.name)}</span>
+        <span style="color:var(--accent);font-size:16px">⟷</span>
+        <span class="chip" style="background:${BIZ.keypr.accent}18;color:${BIZ.keypr.accent};border:1px solid ${BIZ.keypr.accent}44">${esc(b.name)}</span>
+        <button class="del-x" style="margin-left:auto" onclick="delLink('${l.id}')">×</button>
+      </div>
+      ${l.note?`<div style="font-size:13px;color:#9aa7bd;margin-top:8px">${esc(l.note)}</div>`:''}
+    </div>`;
+  }).join("") + `</div>`;
+  return html;
+}
+function addContact(biz){
+  const n=document.getElementById("ct-name").value.trim(); if(!n) return;
+  _state.contacts.push({ id:uid("ct"), biz, name:n, role:document.getElementById("ct-role").value.trim(),
+    phone:document.getElementById("ct-phone").value.trim(), email:document.getElementById("ct-email").value.trim(),
+    notes:document.getElementById("ct-notes").value.trim() });
+  ui.showForm.ct=false; commit();
+}
+function delContact(id){
+  if(!confirm("Delete this contact? Any cross-business links to it will also be removed.")) return;
+  _state.contacts=_state.contacts.filter(c=>c.id!==id);
+  _state.links=_state.links.filter(l=>l.a!==id&&l.b!==id); commit();
+}
+function addLink(){
+  _state.links.push({ id:uid("lk"), a:document.getElementById("lk-a").value,
+    b:document.getElementById("lk-b").value, note:document.getElementById("lk-note").value.trim() });
+  ui.showForm.lk=false; commit();
+}
+function delLink(id){ _state.links=_state.links.filter(l=>l.id!==id); commit(); }
+
+// ========== NOTES ==========
+function rNotes(biz) {
+  const rows=_state.notes.filter(n=>n.biz===biz).sort((a,b)=>b.ts-a.ts);
+  let html = `<div class="section-title">📝 NOTES &amp; IDEAS — ${BIZ[biz].name}</div>
+  <div class="form-panel" style="background:var(--panel);border-color:var(--border)">
+    <textarea id="note-text" rows="3" placeholder="Capture an idea, decision, or reminder for ${BIZ[biz].short}..."></textarea>
+    <button class="btn btn-red" onclick="addNote('${biz}')">💾 SAVE NOTE</button>
+  </div>`;
+  if (!rows.length) html += `<div class="empty">No notes yet.</div>`;
+  html += `<div class="col">` + rows.map(n=>`
+    <div class="card" style="padding:13px 16px;display:flex;gap:12px;align-items:flex-start">
+      <div style="flex:1;min-width:0">
+        <div style="font-size:15px;color:#cbd5e1;white-space:pre-wrap;word-break:break-word">${esc(n.text)}</div>
+        <div style="font-size:12px;color:#9aa8c2;margin-top:6px;letter-spacing:0.08em">${new Date(n.ts).toLocaleString("en-US",{month:"short",day:"numeric",year:"numeric",hour:"numeric",minute:"2-digit"}).toUpperCase()}</div>
+      </div>
+      <button class="del-x" onclick="delNote('${n.id}')">×</button>
+    </div>`).join("") + `</div>`;
+  return html;
+}
+function addNote(biz){
+  const t=document.getElementById("note-text").value.trim(); if(!t) return;
+  _state.notes.push({ id:uid("nt"), biz, text:t, ts:Date.now() }); commit();
+}
+function delNote(id){ _state.notes=_state.notes.filter(n=>n.id!==id); commit(); }
+
+// ========== PROFILE (structured business profile + autofill) ==========
+// Every value lives in THIS browser's storage only — nothing is uploaded anywhere.
+const BP_GROUPS = [
+  ["legal","⚖️ LEGAL IDENTITY",[
+    ["legalName","Legal business name",["legal business name","legal name","entity name","name of entity"]],
+    ["dba","DBA / trade name",["doing business as","trade name","fictitious name","dba"]],
+    ["entityType","Entity type (LLC, Corp…)",["entity type","company type","type of entity"]],
+    ["stateFormation","State of formation",["state of formation","state of organization","formed in","jurisdiction"]],
+    ["stateRegNum","State registration / document #",["document number","registration number","filing number","file number"]],
+    ["formationDate","Formation date",["formation date","date of formation","date filed","effective date"]],
+    ["ein","EIN",["employer identification","federal tax id","fein","ein"]],
+    ["duns","D-U-N-S number",["d-u-n-s","duns"]],
+    ["naics","NAICS / SIC code",["naics","sic code"]],
+  ]],
+  ["agent","🏛️ REGISTERED AGENT",[
+    ["agentName","Agent name",["registered agent name","registered agent"]],
+    ["agentAddress","Agent address",["agent address","registered office"]],
+  ]],
+  ["addr","📍 ADDRESSES",[
+    ["principalAddr","Principal business address",["principal place of business","principal address","principal office","business address"]],
+    ["mailingAddr","Mailing address",["mailing address"]],
+    ["warehouseAddr","Physical / warehouse address",["warehouse address","physical address"]],
+  ]],
+  ["contact","☎️ CONTACT",[
+    ["phone","Business phone",["business phone","phone number","telephone","phone"]],
+    ["email","Business email",["business email","email address","e-mail","email"]],
+    ["website","Website / domain",["website","web site","domain","url"]],
+    ["custService","Customer service email / phone",["customer service","support email","support phone"]],
+  ]],
+  ["owner","👑 OWNERSHIP &amp; MANAGEMENT",[
+    ["owners","Owner(s) / officers & titles",["managing member","authorized member","officer name","owner name","president","member name"]],
+    ["ownershipPct","Ownership %",["ownership percentage","ownership %","percent owned"]],
+    ["ownerSsn","Owner SSN / ITIN",["social security","itin","ssn"]],
+    ["ownerDob","Owner DOB",["date of birth","birth date","dob"]],
+    ["ownerHomeAddr","Owner home address",["home address","residential address","residence address"]],
+  ]],
+  ["bank","🏦 BANKING &amp; FINANCE",[
+    ["bankName","Business bank name",["bank name","banking institution"]],
+    ["acctRouting","Account & routing numbers",["routing number","account number","aba number"]],
+    ["creditCards","Business credit cards",["business credit card","credit card ending"]],
+    ["processors","Payment processors",["payment processor","stripe","paypal","square"]],
+    ["annualRevenue","Annual revenue estimate",["annual revenue","yearly revenue","gross annual","annual sales"]],
+    ["creditBureaus","Business credit bureaus (PAYDEX, Intelliscore…)",["paydex","intelliscore","credit bureau"]],
+  ]],
+  ["tax","🧾 TAX &amp; COMPLIANCE",[
+    ["salesTaxPermit","Sales tax permit / resale certificate #",["sales tax permit","resale certificate","seller's permit","sales and use tax"]],
+    ["annualReportDue","Annual report due date",["annual report due","annual report"]],
+    ["licenses","Business licenses / permits",["business license","license number","permit number"]],
+    ["insurance","Insurance policies (GL, product liability) + #s",["policy number","general liability","insurance policy"]],
+  ]],
+  ["platform","🛒 PLATFORM / OPERATIONS",[
+    ["amazonId","Amazon Seller Central account ID",["seller central account","merchant token","amazon seller id"]],
+    ["walmartId","Walmart Seller ID",["walmart seller id","partner id"]],
+    ["gs1Prefix","GS1 / UPC prefix",["gs1 company prefix","upc prefix","gs1"]],
+    ["trademarks","Trademark registration #s",["trademark registration","registration no","serial no"]],
+    ["brandRegistry","Brand registry status",["brand registry"]],
+    ["marketplaces","Marketplaces",["marketplace"]],
+    ["keyIds","Key IDs / SKUs",[]],
+  ]],
+  ["digital","💻 DIGITAL ASSETS",[
+    ["domainRegistrar","Domain registrar & renewal date",["registrar","godaddy","namecheap","renewal date"]],
+    ["hostingProvider","Hosting provider",["hosting provider","hosted by","hosting"]],
+    ["loginsLocation","Key logins location (password manager ref)",["password manager","1password","bitwarden","lastpass"]],
+  ]],
+  ["brand","🎨 BRAND &amp; NOTES",[
+    ["brands","Brands",[]],
+    ["colors","Brand colors",[]],
+    ["notes","Notes",[]],
+  ]],
+];
+const BP_RX = {
+  ein: [/\b\d{2}-\d{7}\b/, /ein|employer identification|federal tax|tax id/i],
+  duns: [/\b\d{2}-?\d{3}-?\d{4}\b/, /d.?u.?n.?s|d&b/i],
+  ownerSsn: [/\b\d{3}-\d{2}-\d{4}\b/, /ssn|social security|itin/i],
+  phone: [/(\+?1[ .\-]?)?\(?\d{3}\)?[ .\-]?\d{3}[ .\-]?\d{4}/, /phone|tel|call|contact/i],
+  email: [/[\w.+\-]+@[\w\-]+\.[\w.]{2,}/, null],
+  website: [/(?:https?:\/\/)?(?:www\.)?[\w\-]+\.(?:com|net|org|io|co|us|shop|store)\b[^\s,;]*/i, /website|domain|url|www|http/i],
+  naics: [/\b\d{4,6}\b/, /naics|sic/i],
+  formationDate: [/\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2},? \d{4})\b/i, /formation|formed|filed|effective|organiz|incorporat/i],
+  ownerDob: [/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/, /birth|dob|born/i],
+  amazonId: [/\bA[0-9A-Z]{12,13}\b/, /amazon|merchant|seller/i],
+  gs1Prefix: [/\b0\d{5,9}\b/, /gs1|prefix|upc/i],
+  trademarks: [/\b\d{7}\b/, /trademark|uspto|registration no|reg\. no|serial/i],
+  salesTaxPermit: [/\b(?=[A-Z0-9\-]*\d{4})[A-Z0-9\-]{6,15}\b/, /resale|sales tax|seller'?s permit/i],
+};
+// extra label aliases the parser also recognizes (beyond each field's built-in keywords)
+const BP_KW_EXTRA = {
+  legalName: ["company name","corporation name","name of llc","llc name","name of business","registered name","business legal name","name of the company","limited liability company name"],
+  dba: ["also known as","a/k/a","aka"],
+  entityType: ["business type","organization type","business structure","type of business"],
+  stateFormation: ["organized under the laws of","state of incorporation","formed under","domicile state","incorporated in"],
+  stateRegNum: ["document no","doc number","entity number","charter number","control number","sos number","state id number","filing no"],
+  formationDate: ["filed on","incorporation date","date organized","date incorporated","registered on","date of organization"],
+  ein: ["ein number","tax id number","taxpayer identification","federal ein","fed tax id","irs number"],
+  duns: ["duns number","d&b number","dnb number"],
+  naics: ["naics code","industry code","sic number"],
+  agentName: ["name of registered agent","statutory agent"],
+  agentAddress: ["address of the registered agent","address of registered agent","statutory agent address"],
+  principalAddr: ["principal office address","main business address","street address of principal","address of principal office","principal office"],
+  mailingAddr: ["mail address","p.o. box","po box"],
+  warehouseAddr: ["fulfillment address","shipping address"],
+  phone: ["contact number","phone no","business tel","daytime phone","mobile number","cell phone"],
+  email: ["contact email","business e-mail"],
+  website: ["homepage","web address","site url"],
+  custService: ["customer support","cs email","cs phone"],
+  owners: ["authorized person","manager name","managing members","member/manager","officers and directors","authorized representative","principal name"],
+  ownershipPct: ["% ownership","percentage of ownership","equity share","% owned"],
+  ownerSsn: ["ssn/itin","social security no"],
+  ownerDob: ["birthdate"],
+  ownerHomeAddr: ["owner address","personal address"],
+  bankName: ["financial institution","name of bank","depository"],
+  acctRouting: ["acct number","checking account","account no","routing no","aba routing"],
+  creditCards: ["card ending in","credit line"],
+  processors: ["merchant account","payment gateway"],
+  annualRevenue: ["gross revenue","projected revenue","estimated annual","annual gross sales"],
+  creditBureaus: ["paydex score","business credit score","experian business"],
+  salesTaxPermit: ["resale number","tax permit number","certificate of registration","seller permit"],
+  annualReportDue: ["report due date","next annual report"],
+  licenses: ["license no","permit no","local business tax"],
+  insurance: ["insurer","policy no","coverage amount","certificate of insurance"],
+  amazonId: ["merchant id","merchant token","amazon account id"],
+  walmartId: ["walmart account","supplier id","seller center id"],
+  gs1Prefix: ["company prefix","upc company prefix"],
+  trademarks: ["uspto reg","registration number","serial number"],
+  brandRegistry: ["registry status","brand registered"],
+  domainRegistrar: ["domain registered with","registrar name","domain expires"],
+  hostingProvider: ["hosted on","hosting company","server provider"],
+  loginsLocation: ["credentials stored","passwords stored","vault"],
+};
+const BP_STATES = "alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming";
+const BP_CITYZIP = /[A-Za-z .'\-]+,?\s+[A-Z]{2},?\s+\d{5}(?:-\d{4})?/;
+const BP_STREET = /\d{1,6}\s+[\w.#' ]{3,40}\b(?:street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|court|ct|way|terrace|ter|circle|cir|place|pl|parkway|pkwy|highway|hwy)\b/i;
+function bpAllFields(){ return BP_GROUPS.flatMap(([g,t,fs])=>fs.map(([k,label,kws])=>({k,label,kws:(kws||[]).concat(BP_KW_EXTRA[k]||[])}))); }
+function parseAutofill(text){
+  const lines = text.split(/\r?\n/).map(l=>l.replace(/[|•·]+/g," ").replace(/_{3,}/g," ").replace(/\s+/g," ").trim()).filter(l=>l.length>1);
+  const fields = bpAllFields();
+  const best = {};
+  const isAddr = k=>/Addr$/.test(k)||k==="agentAddress";
+  const clean = v=>(v||"").replace(/^[\s:#.,\-–—]+/,"").replace(/[\s;,]+$/,"").trim();
+  const strip = v=>{
+    v = clean(v);
+    v = v.replace(/^(number|no\.?|num|#)[:. ]+/i,"").replace(/^(is|are|shall be)\b[: ]*/i,"");
+    v = v.replace(/^[\s:#.,\-–—]+/,"").trim();
+    if (/^(is|are|the|of|and|as follows)[.:]?$/i.test(v)) return "";
+    return v;
+  };
+  const put = (k,v,score)=>{ v=strip(v); if(v.length<2) return; if(!best[k]||score>best[k].score) best[k]={v:v.slice(0,220),score}; };
+  const grabAddr = (k,startVal,idx,score)=>{
+    let v = strip(startVal);
+    if (v && !/\d/.test(v)) v = ""; // label remnants like "of the company is:" aren't addresses
+    if (v && !BP_CITYZIP.test(v) && lines[idx+1] && BP_CITYZIP.test(lines[idx+1])) v += ", "+lines[idx+1];
+    if (!v){
+      for (let j=idx+1; j<=idx+3 && j<lines.length; j++){
+        if (BP_STREET.test(lines[j]) || BP_CITYZIP.test(lines[j])){
+          v = lines[j];
+          if (lines[j+1] && BP_CITYZIP.test(lines[j+1]) && !BP_CITYZIP.test(v)) v += ", "+lines[j+1];
+          break;
+        }
+      }
+    }
+    put(k, v, score);
+  };
+  // PASS 1 — keyword / label scan (value inline after label, or on the next line)
+  for (let i=0; i<lines.length; i++){
+    const low = lines[i].toLowerCase();
+    for (const f of fields){
+      for (const kw of f.kws){
+        const at = low.indexOf(kw);
+        if (at < 0) continue;
+        if (at > 0 && /[a-z0-9]/.test(low[at-1])) continue; // keyword must start at a word boundary
+        const rest = strip(lines[i].slice(at+kw.length));
+        if (isAddr(f.k)) { grabAddr(f.k, rest, i, 3); break; }
+        if (rest.length >= 2) put(f.k, rest, 3);
+        else if (lines[i+1] && lines[i+1].length <= 120 && !/[:：]\s*$/.test(lines[i+1])) put(f.k, lines[i+1], 2);
+        break;
+      }
+    }
+  }
+  // PASS 2 — pattern scan with context checked in a ±1 line window
+  for (const [k, pair] of Object.entries(BP_RX)){
+    if (best[k] && best[k].score >= 2) continue;
+    const rx = pair[0], ctx = pair[1];
+    for (let i=0; i<lines.length; i++){
+      const win = (lines[i-1]||"")+" "+lines[i]+" "+(lines[i+1]||"");
+      if (ctx && !ctx.test(win)) continue;
+      const m = lines[i].match(rx);
+      if (m){ put(k, m[0], 1); break; }
+    }
+  }
+  // PASS 3 — smart derivations for things documents rarely label
+  if (!best.legalName){
+    const m = lines.find(l=>l.length<70 && /^[A-Z0-9][\w .,&'()\-]{2,60}\b(LLC|L\.L\.C\.?|INC\.?|CORP\.?|CORPORATION|COMPANY|CO\.)\s*$/i.test(l));
+    if (m) put("legalName", m, 1);
+  }
+  if (!best.entityType){
+    const t = text.toLowerCase();
+    if (/limited liability company|\bl\.?l\.?c\b/.test(t)) put("entityType","LLC",1);
+    else if (/\bcorporation\b|\bincorporated\b|\binc\b/.test(t)) put("entityType","Corporation",1);
+    else if (/sole proprietor/.test(t)) put("entityType","Sole Proprietorship",1);
+    else if (/\bpartnership\b/.test(t)) put("entityType","Partnership",1);
+  }
+  if (!best.stateFormation){
+    let m = text.match(new RegExp("(?:state of|laws of(?: the state of)?|organized in|formed in|incorporated in)\\s+("+BP_STATES+")","i"));
+    if (!m) m = text.match(new RegExp("\\b("+BP_STATES+")\\b(?=\\s+(?:limited liability|llc|corporation|inc\\b|profit corporation))","i"));
+    if (m) put("stateFormation", m[1].replace(/\b\w/g,c=>c.toUpperCase()), 1);
+  }
+  if (!best.ein){
+    const m = text.match(/\b(\d{2})\s*[- ]\s*(\d{7})\b/);
+    if (m && /ein|tax|employer/i.test(text)) put("ein", m[1]+"-"+m[2], 1);
+  }
+  if (!best.stateRegNum){
+    const m = text.match(/\b[A-Z]\d{11,}\b|\b[A-Z]{1,3}\d{8,12}\b/);
+    if (m && /document|filing|filed|registration|articles|entity|charter/i.test(text)) put("stateRegNum", m[0], 1);
+  }
+  { // pair routing + account when both appear (beats single-value keyword grabs)
+    const r = text.match(/routing[^\d]{0,14}(\d{9})\b/i), a = text.match(/account[^\d]{0,14}(\d{6,17})\b/i);
+    if (r || a) put("acctRouting", [r&&("Routing "+r[1]), a&&("Account "+a[1])].filter(Boolean).join(" · "), 4);
+  }
+  if (!best.principalAddr){
+    const idx = lines.findIndex(l=>BP_STREET.test(l));
+    if (idx>=0){
+      let v = lines[idx];
+      if (lines[idx+1] && BP_CITYZIP.test(lines[idx+1]) && !BP_CITYZIP.test(v)) v += ", "+lines[idx+1];
+      put("principalAddr", v, 0.5);
+    }
+  }
+  // ordered results
+  const found = [];
+  for (const f of fields){ if (best[f.k]) found.push({ k:f.k, label:f.label, value:best[f.k].v }); }
+  return found;
+}
+function loadScript(src){
+  return new Promise((res,rej)=>{
+    if (document.querySelector(`script[src="${src}"]`)) return res();
+    const s = document.createElement("script"); s.src = src;
+    s.onload = res; s.onerror = ()=>rej(new Error("couldn't load " + src.split("/").pop() + " (check internet)"));
+    document.head.appendChild(s);
+  });
+}
+const TESS_URL = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
+const PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
+const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
+function pickAutofill(biz, which, mode){ const i=document.getElementById(which||"afImg"); i.dataset.biz=biz; i.dataset.mode=mode||"bp"; i.click(); }
+function saveAutofillFile(file, biz){
+  const ext = (file.name && file.name.includes(".")) ? file.name.split(".").pop().toLowerCase()
+    : (file.type==="application/pdf" ? "pdf" : (file.type.split("/")[1]||"png"));
+  const d = new Date(), p = n=>String(n).padStart(2,"0");
+  const stamp = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
+  const entry = { id:uid("doc"), name:"autofill-"+stamp+"."+ext, type:file.type||"", size:file.size,
+    ts:Date.now(), dataUri:null, ref:false, af:true };
+  if (file.size > 3*1048576){ entry.ref = true; _state.docs[biz].files.unshift(entry); try{save();}catch(e){} return; }
+  const r = new FileReader();
+  r.onload = ()=>{ entry.dataUri = r.result; _state.docs[biz].files.unshift(entry);
+    try{ save(); }catch(e){ entry.dataUri=null; entry.ref=true; try{save();}catch(e2){} } };
+  r.readAsDataURL(file);
+}
+async function runAutofill(file, biz, mode){
+  mode = mode || "bp";
+  try {
+    ui.afResults = null;
+    saveAutofillFile(file, biz); // every autofill upload is auto-named + kept in Business Documents
+    let text = "";
+    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)){
+      ui.afStatus = "Extracting text from PDF…"; render();
+      await loadScript(PDFJS_URL);
+      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
+      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
+      const n = Math.min(pdf.numPages, 8);
+      for (let p=1; p<=n; p++){
+        const tc = await (await pdf.getPage(p)).getTextContent();
+        text += tc.items.map(i=>i.str).join("\n") + "\n";
+      }
+      if (text.trim().length < 40){
+        ui.afStatus = "That PDF is a scan with no selectable text — screenshot it and autofill from the image instead."; render(); return;
+      }
+    } else if (/\.(md|txt|csv|json|text)$/i.test(file.name||"") || (file.type && file.type.startsWith("text/"))){
+      ui.afStatus = "Reading text file…"; render();
+      text = await file.text();
+    } else {
+      ui.afStatus = "Reading the image with OCR — takes 10–30 seconds, runs entirely in your browser…"; render();
+      await loadScript(TESS_URL);
+      const res = await Tesseract.recognize(file, "eng");
+      text = res.data.text || "";
+    }
+    const items = (mode==="fin" ? parseFin(text) : parseAutofill(text));
+    if (!items.length){ ui.afStatus = "Couldn't confidently match any fields — try a clearer screenshot or a text PDF."; render(); return; }
+    ui.afStatus = null;
+    ui.afResults = { biz, items, mode };
+    render();
+  } catch(e){ ui.afStatus = "Autofill failed: " + e.message; render(); }
+}
+function applyAutofill(){
+  const { biz, items, mode } = ui.afResults;
+  const store = (mode==="fin") ? _state.fin[biz] : _state.bp[biz];
+  let n = 0;
+  items.forEach((it,i)=>{
+    if (!document.getElementById("af-c-"+i).checked) return;
+    const v = document.getElementById("af-v-"+i).value.trim();
+    if (v){ store[it.k] = v; n++; }
+  });
+  ui.afResults = null;
+  ui.afStatus = "✓ Filled " + n + " field(s).";
+  commit();
+}
+// ===== PROFILE STRENGTH =====
+// every category that makes a business profile strong = one step toward 100%
+const STRENGTH_ITEMS = [
+  ["entity","Legal entity registered","LLC / Corp active with the state",[["bp","legalName"]]],
+  ["goodstanding","State registration current","Document # on file, annual report current",[["bp","stateRegNum"]]],
+  ["agent","Registered agent on file","Required for good standing",[["bp","agentName"]]],
+  ["ein","EIN issued","Federal tax ID from the IRS",[["bp","ein"]]],
+  ["addr","Business address","Real, consistent address on every record (no PO box)",[["bp","principalAddr"]]],
+  ["phone","Dedicated business phone","In the business name — listed, not personal",[["bp","phone"]]],
+  ["email","Business email on own domain","hello@yourcompany.com — not gmail/yahoo",[["bp","email"]]],
+  ["website","Live website / domain","Site matching the legal or brand name",[["bp","website"]]],
+  ["naics","NAICS code set","Low-risk industry classification chosen",[["bp","naics"]]],
+  ["duns","D-U-N-S number","D&B credit file open",[["bp","duns"]]],
+  ["bank","Business bank account","In the exact legal name",[["fin","bankName"],["bp","bankName"]]],
+  ["card","Business credit card","At least one card reporting",[["fin","card1"],["bp","creditCards"]]],
+  ["tradelines","Net-30 tradelines","3+ vendor accounts reporting (Uline, Quill, Grainger…)",[["fin","tradelines"]]],
+  ["scores","Business credit scores","PAYDEX / Intelliscore established",[["fin","paydex"],["fin","intelliscore"]]],
+  ["processor","Payment processor","Stripe / PayPal / merchant account in business name",[["bp","processors"]]],
+  ["license","Licenses & permits","All required local + state licenses",[["bp","licenses"]]],
+  ["salestax","Sales tax permit","Resale certificate where you sell",[["bp","salesTaxPermit"]]],
+  ["insurance","Business insurance","General liability / product liability active",[["bp","insurance"]]],
+  ["gbp","Google Business Profile","Claimed + verified listing",null],
+  ["b411","411 directory listing","ListYourself.net / 411 — lenders check this",null],
+  ["nap","Consistent NAP everywhere","Same Name-Address-Phone on every listing",null],
+  ["social","Online presence","Active social profiles under the business name",null],
+  ["trademark","Trademark filed","Brand protection — strong credibility signal",[["bp","trademarks"]]],
+];
+function strengthStatus(biz, item){
+  const ov = _state.strength[biz][item[0]];
+  if (ov) return { st: ov, auto: false };
+  const srcs = item[3];
+  if (srcs){
+    for (const [store,key] of srcs){
+      const s = store==="fin" ? _state.fin[biz] : _state.bp[biz];
+      if (s && s[key]) return { st: "done", auto: true };
+    }
+  }
+  if (_state.strengthData[biz][item[0]]) return { st: "done", auto: true };
+  return { st: "upcoming", auto: false };
+}
+function strengthVal(biz, item){
+  const srcs = item[3];
+  if (srcs){
+    for (const [store,key] of srcs){
+      const s = store==="fin" ? _state.fin[biz] : _state.bp[biz];
+      if (s && s[key]) return s[key];
+    }
+  }
+  return _state.strengthData[biz][item[0]] || "";
+}
+function saveStrengthVal(biz, k){
+  const item = STRENGTH_ITEMS.find(i=>i[0]===k);
+  const v = document.getElementById("st-val-"+k).value.trim();
+  if (item[3]){
+    const [store,key] = item[3][0];
+    (store==="fin" ? _state.fin[biz] : _state.bp[biz])[key] = v;
+  } else {
+    if (v) _state.strengthData[biz][k] = v; else delete _state.strengthData[biz][k];
+  }
+  commit();
+}
+function pickStrengthFile(biz,k){ const i=document.getElementById("skFile"); i.dataset.biz=biz; i.dataset.k=k; i.click(); }
+function addStrengthFiles(fileList, biz, k){
+  const files=[...fileList]; if(!files.length) return;
+  const arr = (_state.strengthFiles[biz][k] ||= []);
+  let pending=files.length;
+  files.forEach(f=>{
+    const entry={ id:uid("skf"), name:f.name||"attachment", type:f.type||"", size:f.size, ts:Date.now(), dataUri:null, ref:false };
+    const fin=()=>{ if(--pending===0){ try{save();}catch(e){ ui.docStatus="Storage full — some files kept as reference only."; } render(); } };
+    if (f.size > 3*1048576){ entry.ref=true; arr.push(entry); fin(); return; }
+    const r=new FileReader();
+    r.onload=()=>{ entry.dataUri=r.result; arr.push(entry); fin(); };
+    r.readAsDataURL(f);
+  });
+}
+function openStrengthFile(biz,k,id){
+  const f=(_state.strengthFiles[biz][k]||[]).find(x=>x.id===id); if(!f) return;
+  if(!f.dataUri){ alert('"'+f.name+'" was too big to store — reference only.'); return; }
+  fetch(f.dataUri).then(r=>r.blob()).then(b=>window.open(URL.createObjectURL(new Blob([b],{type:f.type||b.type})),"_blank"));
+}
+function renameStrengthFile(biz,k,id){
+  const f=(_state.strengthFiles[biz][k]||[]).find(x=>x.id===id); if(!f) return;
+  const n=prompt("Rename file:", f.name);
+  if(n && n.trim()){ f.name=n.trim(); commit(); }
+}
+function delStrengthFile(biz,k,id){
+  _state.strengthFiles[biz][k]=(_state.strengthFiles[biz][k]||[]).filter(x=>x.id!==id); commit();
+}
+function cycleStrength(biz, k){
+  const cur = _state.strength[biz][k] || null;
+  const next = { null: "done", "done": "waiting", "waiting": "upcoming", "upcoming": null }[cur===null?null:cur];
+  if (next===null || next===undefined) delete _state.strength[biz][k];
+  else _state.strength[biz][k] = next;
+  commit();
+}
+function rStrength(biz){
+  const tcol = biz==="centauri" ? "#1A6AE8" : "var(--accent)";
+  const rows = STRENGTH_ITEMS.map(it=>({ it, ...strengthStatus(biz,it) }));
+  const done = rows.filter(r=>r.st==="done").length;
+  const waiting = rows.filter(r=>r.st==="waiting").length;
+  const pct = Math.round(done/STRENGTH_ITEMS.length*100);
+  let html = `<div class="section-title">💪 PROFILE STRENGTH — ${BIZ[biz].name}</div>`;
+  if (biz==="keypr") html += `<div style="width:290px;margin:0 auto 14px">${keyprLogoSVG()}</div>`;
+  if (biz==="centauri") html += `<div style="width:290px;margin:0 auto 14px">${centauriLogoSVG()}</div>`;
+  html += `<div class="stats">
+    <div class="stat"><div class="lbl">📊 STRENGTH</div><div class="val" style="color:${BIZ[biz].accent}">${pct}%</div></div>
+    <div class="stat"><div class="lbl">✅ STEPS DONE</div><div class="val" style="color:var(--green)">${done}/${STRENGTH_ITEMS.length}</div></div>
+    <div class="stat"><div class="lbl">⏳ WAITING ON</div><div class="val" style="color:var(--amber)">${waiting}</div></div>
+  </div>
+  <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-bottom:14px;">
+    <div style="height:100%;width:${pct}%;background:${BIZ[biz].accent};transition:width 1s ease"></div>
+  </div>
+  <div class="row" style="margin-bottom:8px">
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg','bp')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf','bp')">⚡ AUTOFILL FROM PDF 📄</button>
+  </div>
+  <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">Autofill feeds your Profile & Banking fields — AUTO items below flip to done the moment their field is filled. Click any circle to override: ✓ done → ⏳ waiting → upcoming → back to AUTO.</div>`;
+  if (ui.afStatus && _state.activeTab==="strength") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += afPanelHTML(biz, "bp");
+  html += `<div class="col" style="gap:8px;margin-bottom:14px">` + rows.map((r,i)=>{
+    const sc = STEP_COLORS[r.st] || STEP_COLORS.upcoming;
+    const k = r.it[0];
+    const val = strengthVal(biz, r.it);
+    const files = _state.strengthFiles[biz][k] || [];
+    const open = !!ui.strengthOpen[k];
+    let row = `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:8px;padding:10px 14px">
+      <div style="display:flex;gap:12px;align-items:flex-start">
+      <div onclick="cycleStrength('${biz}','${k}')" title="Click to cycle status"
+        style="width:26px;height:26px;border-radius:6px;background:${r.st==='upcoming'?'rgba(255,255,255,0.05)':sc.text+'22'};border:1px solid ${sc.border};display:flex;align-items:center;justify-content:center;font-size:13px;color:${sc.text};flex-shrink:0;cursor:pointer;user-select:none">
+        ${r.st==="done"?"✓":i+1}</div>
+      <div style="flex:1;min-width:0;cursor:pointer" onclick="ui.strengthOpen['${k}']=!ui.strengthOpen['${k}'];render()">
+        <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
+          <span style="font-size:15px;font-weight:700;color:${r.st==='upcoming'?'#8794ab':'#e2e8f0'}">${r.it[1]}</span>
+          ${r.auto?`<span class="chip" style="background:${tcol}22;color:${tcol};border:1px solid ${tcol}44">AUTO ✓</span>`:""}
+          ${r.st==="waiting"?`<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">WAITING</span>`:""}
+          ${files.length?`<span class="chip" style="background:rgba(255,255,255,0.06);color:#9aa8c2;border:1px solid rgba(255,255,255,0.12)">📎 ${files.length}</span>`:""}
+        </div>
+        <div style="font-size:13px;color:#8794ab;margin-top:2px">${r.it[2]}</div>
+        ${val?`<div style="font-size:14px;font-weight:800;color:var(--gold);margin-top:4px;word-break:break-all">${esc(val)}</div>`:""}
+      </div>
+      <div onclick="ui.strengthOpen['${k}']=!ui.strengthOpen['${k}'];render()" style="cursor:pointer;color:#8794ab;font-size:18px;flex-shrink:0;transform:rotate(${open?180:0}deg);transition:transform .2s">⌄</div>
+      </div>`;
+    if (open){
+      row += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.07)">
+        <div class="row">
+          <input id="st-val-${k}" value="${esc(val)}" placeholder="Type the value here (e.g. planetxentauri@gmail.com)" style="flex:1">
+          <button class="btn btn-red" onclick="saveStrengthVal('${biz}','${k}')">💾 SAVE</button>
+          <button class="btn btn-ghost" onclick="pickStrengthFile('${biz}','${k}')">📎 ADD FILE</button>
+        </div>`;
+      if (files.length) row += `<div class="col" style="margin-top:8px">` + files.map(f=>`
+        <div style="display:flex;gap:10px;align-items:center;background:rgba(255,255,255,0.03);border:1px solid rgba(255,255,255,0.07);border-radius:8px;padding:8px 12px">
+          ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openStrengthFile('${biz}','${k}','${f.id}')">`:`<span style="cursor:pointer" onclick="openStrengthFile('${biz}','${k}','${f.id}')">${fileIcon(f.name)}</span>`}
+          <span style="flex:1;min-width:0;font-size:13px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openStrengthFile('${biz}','${k}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#8794ab;font-size:12px">(reference only)</span>`:""}</span>
+          <span style="font-size:12px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)}</span>
+          <button class="del-x" title="Rename" onclick="renameStrengthFile('${biz}','${k}','${f.id}')">✎</button>
+          <button class="del-x" onclick="delStrengthFile('${biz}','${k}','${f.id}')">×</button>
+        </div>`).join("") + `</div>`;
+      row += `</div>`;
+    }
+    return row + `</div>`;
+  }).join("") + `</div>`;
+  html += rDocs(biz);
+  return html;
+}
+function afPanelHTML(biz, mode){
+  if (!ui.afResults || ui.afResults.biz!==biz || (ui.afResults.mode||"bp")!==mode) return "";
+  const store = (mode==="fin") ? _state.fin[biz] : _state.bp[biz];
+  return `<div class="form-panel">
+    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">REVIEW AUTOFILL — ${ui.afResults.items.length} MATCH(ES). UNCHECK ANYTHING WRONG.</div>` +
+    ui.afResults.items.map((it,i)=>`
+    <div style="display:flex;gap:8px;align-items:center">
+      <input type="checkbox" id="af-c-${i}" ${store[it.k]?"":"checked"} style="width:auto;flex-shrink:0">
+      <div style="width:170px;flex-shrink:0;font-size:12px;color:var(--muted)">${it.label}${store[it.k]?` <span style="color:var(--amber)">(overwrites)</span>`:""}</div>
+      <input id="af-v-${i}" value="${esc(it.value)}" style="flex:1">
+    </div>`).join("") + `
+    <div class="row"><button class="btn btn-red" style="flex:1" onclick="applyAutofill()">✅ APPLY CHECKED</button>
+    <button class="btn btn-ghost" onclick="ui.afResults=null;render()">DISMISS</button></div></div>`;
+}
+// ===== BANKING & CREDIT (Financials tab) =====
+const FIN_GROUPS = [
+  ["bankacct","🏦 BANKING",[
+    ["bankName","Bank name"],
+    ["acctType","Account type (checking / savings)"],
+    ["acctNumber","Account number"],
+    ["routingNumber","Routing number"],
+    ["bankContact","Banker / branch contact"],
+    ["bankOnline","Online banking URL"],
+    ["secondaryBank","Secondary bank & account"],
+  ]],
+  ["cards","💳 CREDIT CARDS",[
+    ["card1","Card 1 (issuer · last 4 · limit)"],
+    ["card2","Card 2 (issuer · last 4 · limit)"],
+    ["card3","Card 3 (issuer · last 4 · limit)"],
+    ["cardDue","Payment due dates"],
+    ["cardApr","APR / terms"],
+  ]],
+  ["bizcredit","📈 BUSINESS CREDIT",[
+    ["paydex","D&B PAYDEX score"],
+    ["intelliscore","Experian Intelliscore"],
+    ["equifax","Equifax Business score"],
+    ["fico","FICO SBSS"],
+    ["tradelines","Net-30 / tradeline accounts"],
+    ["creditLimitTotal","Total credit available"],
+    ["creditNotes","Credit building notes"],
+  ]],
+];
+const FIN_BANKS = /\b(chase|bank of america|wells fargo|truist|pnc|citibank|citizens|capital one|td bank|regions|us bank|fifth third|huntington|navy federal|chime|novo|bluevine|mercury|relay|axos|live oak|amex|american express)\b/i;
+function parseFin(text){
+  const lines = text.split(/\r?\n/).map(l=>l.replace(/[|•·]+/g," ").replace(/\s+/g," ").trim()).filter(l=>l.length>1);
+  const best = {};
+  const put=(k,v,score)=>{ v=(v||"").replace(/^[\s:#.,\-–—]+/,"").replace(/[\s;,]+$/,"").trim();
+    if(v.length<1) return; if(!best[k]||score>best[k].score) best[k]={v:v.slice(0,220),score}; };
+  const kwPass = [
+    ["bankName",["bank name","financial institution","banking with","depository"]],
+    ["acctNumber",["account number","account no","acct number","acct #"]],
+    ["routingNumber",["routing number","routing no","aba number","aba routing"]],
+    ["bankContact",["banker","branch contact","account manager","relationship manager"]],
+    ["bankOnline",["online banking","login url","banking url"]],
+    ["cardDue",["payment due","due date","statement date"]],
+    ["cardApr",["apr","interest rate","purchase rate"]],
+    ["paydex",["paydex"]],
+    ["intelliscore",["intelliscore","experian score","experian business"]],
+    ["equifax",["equifax business","equifax score"]],
+    ["fico",["fico sbss","sbss"]],
+    ["tradelines",["net-30","net 30","tradeline","trade line","vendor account"]],
+    ["creditLimitTotal",["total credit","credit limit","credit line","available credit"]],
+  ];
+  for (let i=0;i<lines.length;i++){
+    const low = lines[i].toLowerCase();
+    for (const [k,kws] of kwPass){
+      for (const kw of kws){
+        const at = low.indexOf(kw);
+        if (at<0) continue;
+        if (at>0 && /[a-z0-9]/.test(low[at-1])) continue;
+        let rest = lines[i].slice(at+kw.length).replace(/^[\s:#.\-–—]*/,"").trim();
+        if (rest.length>=1) put(k, rest, 3);
+        else if (lines[i+1] && lines[i+1].length<=120) put(k, lines[i+1], 2);
+        break;
+      }
+    }
+  }
+  // pattern passes
+  for (const l of lines){
+    if (!best.routingNumber){ const m=l.match(/routing[^\d]{0,14}(\d{9})\b/i); if(m) put("routingNumber", m[1], 4); }
+    if (!best.acctNumber){ const m=l.match(/acc(?:oun)?t[^\d]{0,14}(\d{6,17})\b/i); if(m) put("acctNumber", m[1], 4); }
+    if (!best.acctType){ const m=l.match(/\b(business )?(checking|savings|money market)\b/i); if(m) put("acctType", m[0], 2); }
+    if (!best.bankName){ const m=l.match(FIN_BANKS); if(m) put("bankName", l.length<60 ? l : m[0], 2); }
+    if (!best.paydex){ const m=l.match(/paydex[^\d]{0,12}(\d{1,3})/i); if(m) put("paydex", m[1], 4); }
+    if (!best.intelliscore){ const m=l.match(/intelliscore[^\d]{0,12}(\d{1,3})/i); if(m) put("intelliscore", m[1], 4); }
+  }
+  // credit cards: collect up to three distinct mentions
+  const cardRx = /\b(visa|mastercard|master card|amex|american express|discover)\b[^\n]{0,40}?(?:ending(?: in)?|last 4|x{2,4}|\*{2,4})?[^\d]{0,6}(\d{4})\b/i;
+  const seen = new Set(); let slot = 1;
+  for (const l of lines){
+    if (slot>3) break;
+    const m = l.match(cardRx);
+    if (!m || seen.has(m[2])) continue;
+    seen.add(m[2]);
+    const lim = l.match(/\$[\d,]+/);
+    put("card"+slot, m[1].toUpperCase()+" ···"+m[2]+(lim?" · limit "+lim[0]:""), 3);
+    slot++;
+  }
+  const fields = FIN_GROUPS.flatMap(([g,t,fs])=>fs.map(([k,label])=>({k,label})));
+  const found = [];
+  for (const f of fields){ if (best[f.k]) found.push({ k:f.k, label:f.label, value:best[f.k].v }); }
+  return found;
+}
+function rProfile(biz) {
+  const bp = _state.bp[biz];
+  let html = `<div class="section-title">👤 BUSINESS PROFILE — ${BIZ[biz].name}</div>`;
+  if (biz==="keypr") html += `<div style="width:290px;margin:0 auto 14px">${keyprLogoSVG()}</div>`;
+  if (biz==="centauri") html += `<div style="width:290px;margin:0 auto 14px">${centauriLogoSVG()}</div>`;
+  html += `<div class="row" style="margin-bottom:8px">
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf')">⚡ AUTOFILL FROM PDF 📄</button>
+  </div>
+  <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">OCR runs locally in your browser — the file is never uploaded. You review every value before it saves. 🔒 All profile data stays on this device.</div>`;
+  if (ui.afStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += afPanelHTML(biz, "bp");
+  html += rDocs(biz);
+  for (const [gid, title, fields] of BP_GROUPS) {
+    const filled = fields.filter(([k])=>bp[k]).length;
+    const editing = ui.editGroup === gid;
+    html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled?`border-left:3px solid ${BIZ[biz].accent};`:""}">
+      <div style="display:flex;align-items:center;gap:8px;${editing||filled?"margin-bottom:10px;":""}">
+        <div style="font-size:12px;letter-spacing:0.22em;font-weight:800;color:${biz==="centauri"?"#1A6AE8":"var(--accent)"}">${title}</div>
+        <span class="chip" style="background:rgba(255,255,255,0.05);color:${filled===fields.length?"var(--green)":"var(--muted)"};border:1px solid rgba(255,255,255,0.1)">${filled}/${fields.length}</span>
+        <button class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
+      </div>`;
+    if (editing) {
+      html += `<div class="col">` + fields.map(([k,label])=>`
+        <div><div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
+        <input id="bp-${k}" value="${esc(bp[k]||"")}"></div>`).join("") + `
+        <button class="btn btn-red" onclick="saveBpGroup('${biz}','${gid}')">💾 SAVE ${title}</button>
+      </div>`;
+    } else if (filled) {
+      html += fields.filter(([k])=>bp[k]).map(([k,label])=>`
+        <div style="margin-bottom:9px">
+          <div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.12em;margin-bottom:2px">${label.toUpperCase()}</div>
+          <div style="font-size:15px;color:#e2e8f0;white-space:pre-wrap;word-break:break-word">${esc(bp[k])}</div>
+        </div>`).join("");
+    }
+    html += `</div>`;
+  }
+  return html;
+}
+function saveBpGroup(biz, gid){
+  const fields = BP_GROUPS.find(([g])=>g===gid)[2];
+  fields.forEach(([k])=>{ _state.bp[biz][k] = document.getElementById("bp-"+k).value.trim(); });
+  ui.editGroup = null; commit();
+}
+
+// ========== BUSINESS DOCUMENTS (per business) ==========
+// Obsidian folder connect + Update scan, saved files/screenshots (incl. paste),
+// general links, and a dedicated Dun & Bradstreet panel.
+const fmtSize = n => n>1048576 ? (n/1048576).toFixed(1)+" MB" : n>1024 ? Math.round(n/1024)+" KB" : (n||0)+" B";
+const fmtTs = t => new Date(t).toLocaleDateString("en-US",{month:"short",day:"numeric",year:"numeric"});
+const fileIcon = name => {
+  const e=(name.split(".").pop()||"").toLowerCase();
+  return {pdf:"📕",doc:"📄",docx:"📄",md:"📝",txt:"📝",xls:"📊",xlsx:"📊",csv:"📊",
+    png:"🖼",jpg:"🖼",jpeg:"🖼",gif:"🖼",webp:"🖼",svg:"🖼",json:"⚙",zip:"🗜"}[e]||"📎";
+};
+// D&B wordmark (SVG recreation: thin lowercase blue "dun & bradstreet")
+function dnbLogoSVG() {
+  return `
+  <svg viewBox="0 0 620 84" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block" aria-label="dun &amp; bradstreet">
+    <text x="0" y="60" font-family="'Century Gothic','Futura','Trebuchet MS',sans-serif"
+      font-weight="300" font-size="54" letter-spacing="6" fill="#4d94bd">dun</text>
+    <text x="128" y="66" font-family="'Century Gothic','Futura','Trebuchet MS',sans-serif"
+      font-weight="400" font-size="78" fill="#2e6f9e">&amp;</text>
+    <text x="196" y="60" font-family="'Century Gothic','Futura','Trebuchet MS',sans-serif"
+      font-weight="300" font-size="54" letter-spacing="6" fill="#5fa8c9">bradstreet</text>
+  </svg>`;
+}
+// Centauri World logo (SVG recreation: blue dot-sphere globe + wordmark)
+function centauriGlobeDots() {
+  // regular dot lattice clipped to a sphere, with a circular cut-out on the
+  // right that carves the crescent "C" — dots swell toward the sphere's center
+  let dots = "";
+  const cx=60, cy=60, R=47, step=6.9;
+  const kx=cx+R*0.62, kr=R*0.78;
+  let row=0;
+  for (let y=cy-R+4; y<=cy+R-3; y+=step, row++) {
+    const off=(row%2)*step/2;
+    for (let x=cx-R+2+off; x<=cx+R; x+=step) {
+      const r=Math.hypot(x-cx,y-cy);
+      if (r>R-2) continue;                      // outside sphere
+      if (Math.hypot(x-kx,y-cy)<kr) continue;    // inside cut-out → crescent
+      const s=1.0+2.9*Math.sqrt(Math.max(0,1-(r/R)*(r/R)));
+      dots += `<circle cx="${x.toFixed(1)}" cy="${y.toFixed(1)}" r="${s.toFixed(2)}" fill="#1A6AE8"/>`;
+    }
+  }
+  return dots;
+}
+function centauriMarkSVG() {
+  return `<svg viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block">${centauriGlobeDots()}</svg>`;
+}
+function centauriLogoSVG() {
+  return `
+  <svg viewBox="0 0 460 104" xmlns="http://www.w3.org/2000/svg" style="width:100%;display:block" aria-label="Centauri World LLC">
+    <text x="230" y="46" text-anchor="middle" font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="700" font-size="36"
+      textLength="436" lengthAdjust="spacingAndGlyphs" fill="#1A6AE8">CENTAURI WORLD</text>
+    <text x="230" y="86" text-anchor="middle" font-family="Cinzel, 'Times New Roman', Georgia, serif" font-weight="900" font-size="19"
+      textLength="100" lengthAdjust="spacingAndGlyphs" fill="#E8B64C">LLC</text>
+  </svg>`;
+}
+function docSecHdr(id, title, count, open){
+  return `<div onclick="ui.docOpen.${id}=!ui.docOpen.${id};render()" style="cursor:pointer;user-select:none;display:flex;align-items:center;gap:10px;margin-bottom:8px;padding:10px 14px;background:var(--panel);border:1px solid var(--border);border-radius:10px">
+    <span style="display:inline-block;transform:rotate(${open?90:0}deg);transition:transform .2s;color:var(--accent);font-size:13px">▶</span>
+    <span style="font-size:12px;letter-spacing:0.2em;color:#94a3b8;font-weight:700">${title}</span>
+    <span class="chip" style="margin-left:auto;background:var(--accent-dim);color:var(--accent);border:1px solid var(--accent-brd)">${count}</span>
+  </div>`;
+}
+function rDocs(biz) {
+  const D=_state.docs[biz], scan=D.scan||{files:[]};
+  let html = `<div class="section-title" style="margin-top:26px">📂 BUSINESS DOCUMENTS — ${BIZ[biz].name}</div>
+  <div class="row" style="margin-bottom:10px;flex-wrap:wrap">
+    <button class="btn btn-red" style="flex:2;min-width:110px" onclick="scanDocs('${biz}')">🔄 UPDATE</button>
+    <button class="btn btn-ghost" style="flex:2;min-width:150px" onclick="connectDocsFolder('${biz}')">📂 CONNECT OBSIDIAN FOLDER</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="pickDocFiles('${biz}')">📎 FILES</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.dlink=!ui.showForm.dlink;render()">🔗 LINK</button>
+  </div>
+  <div style="font-size:12px;color:#9aa8c2;margin-bottom:10px">Tip: with this page open you can paste (Ctrl+V) a screenshot straight into saved files.</div>`;
+  if (ui.docStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.docStatus)}</div>`;
+  if (ui.showForm.dlink) {
+    html += `<div class="form-panel">
+      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">ADD LINK</div>
+      <input id="dk-label" placeholder="Label (e.g. Walmart Seller Center)">
+      <input id="dk-url" placeholder="https://…">
+      <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:#94a3b8;cursor:pointer">
+        <input type="checkbox" id="dk-dnb" style="width:auto"> Put in the Dun &amp; Bradstreet section</label>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDocLink('${biz}')">💾 SAVE LINK</button>
+      <button class="btn btn-ghost" onclick="ui.showForm.dlink=false;render()">CANCEL</button></div></div>`;
+  }
+  // --- Dun & Bradstreet panel ---
+  html += `<div class="card" style="padding:14px 16px;margin-bottom:12px;border-left:3px solid #2e6f9e">
+    <div style="width:200px;margin-bottom:12px" title="Dun &amp; Bradstreet">${dnbLogoSVG()}</div>
+    ${D.dnb.length ? `<div class="col">`+D.dnb.map(l=>`
+      <div style="display:flex;gap:10px;align-items:center">
+        <span style="flex-shrink:0">🔗</span>
+        <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:14px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
+        <button class="del-x" onclick="delDocLink('${biz}','dnb','${l.id}')">×</button>
+      </div>`).join("")+`</div>` : `<div style="font-size:13px;color:#8794ab">No D&amp;B links yet — use + LINK and check the D&amp;B box.</div>`}
+  </div>`;
+  // --- Obsidian folder files ---
+  html += docSecHdr("obs", `📁 OBSIDIAN FOLDER${scan.folderName?` — ${esc(scan.folderName.toUpperCase())}`:""}`, scan.files.length, !!ui.docOpen.obs);
+  if (ui.docOpen.obs && !scan.files.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No folder connected yet. Click <b>📂 CONNECT OBSIDIAN FOLDER</b> (Chrome/Edge/Brave), then <b>🔄 UPDATE</b> pulls the file list — and re-pulls it any time. Click a file to open it, or 🪄 to autofill from it.</div>`;
+  else if (ui.docOpen.obs) html += `<div class="col" style="margin-bottom:12px">`+scan.files.map((f,i)=>`
+    <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center;cursor:pointer" onclick="openScanFile('${biz}',${i})" title="Click to open">
+      <span>${fileIcon(f.name)}</span>
+      <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(f.name)}</span>
+      <span style="font-size:12px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.mtime)}</span>
+      <button class="del-x" style="opacity:0.85;font-size:16px" title="Sync this file into autofill" onclick="event.stopPropagation();autofillFromScan('${biz}',${i})">🪄</button>
+    </div>`).join("")+`</div>`;
+  // --- Saved files & screenshots ---
+  const afF = D.files.filter(f=>f.af), otherF = D.files.filter(f=>!f.af);
+  html += docSecHdr("afu", "🪄 AUTOFILL UPLOADS", afF.length, !!ui.docOpen.afu);
+  if (ui.docOpen.afu && !afF.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No autofill uploads yet — every photo or PDF you run through autofill lands here automatically.</div>`;
+  if (ui.docOpen.afu && afF.length){
+    html += `<div class="col" style="margin-bottom:12px">`+afF.map(f=>`
+    <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
+      ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:44px;height:44px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
+      <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#8794ab;font-size:12px">(reference only — too big to store)</span>`:""}</span>
+      <span style="font-size:12px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
+      <button class="del-x" title="Rename" onclick="renameDocFile('${biz}','${f.id}')">✎</button>
+      <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
+    </div>`).join("")+`</div>`;
+  }
+  html += docSecHdr("sav", "💾 SAVED FILES &amp; SCREENSHOTS", otherF.length, !!ui.docOpen.sav);
+  if (ui.docOpen.sav && !otherF.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">Nothing saved yet — use <b>📎 FILES</b> or paste a screenshot.</div>`;
+  else if (ui.docOpen.sav) html += `<div class="col" style="margin-bottom:12px">`+otherF.map(f=>`
+    <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
+      ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
+      <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#8794ab;font-size:12px">(reference only — too big to store)</span>`:""}</span>
+      <span style="font-size:12px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
+      <button class="del-x" title="Rename" onclick="renameDocFile('${biz}','${f.id}')">✎</button>
+      <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
+    </div>`).join("")+`</div>`;
+  // --- General links ---
+  html += docSecHdr("lnk", "🔗 LINKS", D.links.length, !!ui.docOpen.lnk);
+  if (ui.docOpen.lnk && !D.links.length) html += `<div class="empty" style="padding:18px">No links yet — use <b>🔗 LINK</b>.</div>`;
+  else if (ui.docOpen.lnk) html += `<div class="col">`+D.links.map(l=>`
+    <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
+      <span>🔗</span>
+      <a href="${esc(l.url)}" target="_blank" rel="noopener" style="flex:1;min-width:0;font-size:14px;color:#93c5fd;text-decoration:none;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">${esc(l.label||l.url)}</a>
+      <button class="del-x" onclick="delDocLink('${biz}','links','${l.id}')">×</button>
+    </div>`).join("")+`</div>`;
+  return html;
+}
+async function connectDocsFolder(biz) {
+  if (!window.showDirectoryPicker) { ui.docStatus="Folder connect needs Chrome, Edge, or Brave."; render(); return; }
+  try {
+    const h = await window.showDirectoryPicker({ mode: "read" });
+    await idbSet("docs-"+biz, h);
+    _state.docs[biz].scan.folderName = h.name;
+    ui.docStatus = "Folder \""+h.name+"\" connected — click ⟳ UPDATE to pull the file list.";
+    commit(); return;
+  } catch(e) { if (e.name!=="AbortError") ui.docStatus="Couldn't connect folder: "+e.message; }
+  render();
+}
+async function scanDocs(biz) {
+  ui.docStatus = "Scanning…"; render();
+  try {
+    const h = await idbGet("docs-"+biz);
+    if (!h) { ui.docStatus="No folder connected yet — click ◇ CONNECT OBSIDIAN FOLDER first."; render(); return; }
+    let perm = await h.queryPermission({mode:"read"});
+    if (perm!=="granted") perm = await h.requestPermission({mode:"read"});
+    if (perm!=="granted") { ui.docStatus="Folder permission was denied."; render(); return; }
+    const files = [];
+    for await (const entry of h.values()) {
+      if (entry.kind!=="file") continue;
+      const f = await entry.getFile();
+      files.push({ name:f.name, size:f.size, mtime:f.lastModified });
+      if (files.length>=300) break;
+    }
+    files.sort((a,b)=>b.mtime-a.mtime);
+    _state.docs[biz].scan = { files, lastScan: Date.now(), folderName: h.name };
+    ui.docStatus = "✓ Pulled "+files.length+" file(s) from \""+h.name+"\"";
+    commit();
+  } catch(e) { ui.docStatus="Scan failed: "+e.message; render(); }
+}
+async function openScanFile(biz, idx) {
+  try {
+    const h = await idbGet("docs-"+biz);
+    const meta = _state.docs[biz].scan.files[idx];
+    const fh = await h.getFileHandle(meta.name);
+    const f = await fh.getFile();
+    window.open(URL.createObjectURL(f), "_blank");
+  } catch(e) { ui.docStatus="Couldn't open file: "+e.message; render(); }
+}
+async function autofillFromScan(biz, idx){
+  try {
+    const h = await idbGet("docs-"+biz);
+    const meta = _state.docs[biz].scan.files[idx];
+    const f = await (await h.getFileHandle(meta.name)).getFile();
+    runAutofill(f, biz);
+  } catch(e){ ui.docStatus = "Couldn't read that file: " + e.message; render(); }
+}
+function pickDocFiles(biz){ const i=document.getElementById("docFile"); i.dataset.biz=biz; i.click(); }
+function addDocFiles(fileList, biz) {
+  const files=[...fileList]; if(!files.length) return;
+  let pending=files.length;
+  files.forEach(f=>{
+    const entry={ id:uid("doc"), name:f.name||("screenshot-"+new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")+".png"),
+      type:f.type||"", size:f.size, ts:Date.now(), dataUri:null, ref:false };
+    if (f.size > 3*1048576) { entry.ref=true; _state.docs[biz].files.unshift(entry); if(--pending===0) finishDocAdd(biz,files.length); return; }
+    const r=new FileReader();
+    r.onload=()=>{ entry.dataUri=r.result; _state.docs[biz].files.unshift(entry); if(--pending===0) finishDocAdd(biz,files.length); };
+    r.readAsDataURL(f);
+  });
+}
+function finishDocAdd(biz,n){
+  try { save(); ui.docStatus="✓ Saved "+n+" file(s)."; }
+  catch(e){ ui.docStatus="Storage is full — file kept as reference only. Delete some saved files to free space."; }
+  render();
+}
+function renameDocFile(biz,id){
+  const f=_state.docs[biz].files.find(x=>x.id===id); if(!f) return;
+  const n=prompt("Rename file:", f.name);
+  if(n && n.trim()){ f.name=n.trim(); commit(); }
+}
+function delDocFile(biz,id){ _state.docs[biz].files=_state.docs[biz].files.filter(f=>f.id!==id); commit(); }
+function openSavedDoc(biz,id){
+  const f=_state.docs[biz].files.find(x=>x.id===id);
+  if(!f) return;
+  if(!f.dataUri){ ui.docStatus="\""+f.name+"\" was too big to store — it's listed as a reference only."; render(); return; }
+  fetch(f.dataUri).then(r=>r.blob()).then(b=>window.open(URL.createObjectURL(new Blob([b],{type:f.type||b.type})),"_blank"));
+}
+function addDocLink(biz){
+  const url=document.getElementById("dk-url").value.trim(); if(!url) return;
+  const label=document.getElementById("dk-label").value.trim();
+  const bucket=document.getElementById("dk-dnb").checked?"dnb":"links";
+  _state.docs[biz][bucket].push({ id:uid("lnk"), label, url: /^https?:\/\//i.test(url)?url:"https://"+url });
+  ui.showForm.dlink=false; commit();
+}
+function delDocLink(biz,bucket,id){ _state.docs[biz][bucket]=_state.docs[biz][bucket].filter(l=>l.id!==id); commit(); }
+
+
+// ---------- Logo upload ----------
+document.getElementById("headerLogo").addEventListener("click", ()=>document.getElementById("logoFile").click());
+document.getElementById("logoFile").addEventListener("change", e=>{
+  const f=e.target.files[0]; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ _state.logo=r.result; commit(); };
+  r.readAsDataURL(f);
+});
+document.getElementById("catFile").addEventListener("change", e=>{
+  const f=e.target.files[0], biz=e.target.dataset.biz||"centauri";
+  e.target.value=""; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ try { applyCatalog(biz, JSON.parse(r.result), "file import"); }
+    catch(err){ ui.catStatus="Couldn't read that file as tracker JSON: "+err.message; render(); } };
+  r.readAsText(f);
+});
+document.getElementById("docFile").addEventListener("change", e=>{
+  const biz=e.target.dataset.biz||_state.activeBiz;
+  addDocFiles(e.target.files, biz); e.target.value="";
+});
+// paste a screenshot while on the Profile page → saved files
+document.addEventListener("paste", e=>{
+  if (_state.activeTab!=="profile") return;
+  const imgs=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith("image/"));
+  if (imgs.length) { e.preventDefault(); addDocFiles(imgs, _state.activeBiz); }
+});
+
+// ---------- Autofill file picker ----------
+document.getElementById("skFile").addEventListener("change", e=>{
+  const biz=e.target.dataset.biz||_state.activeBiz, k=e.target.dataset.k;
+  addStrengthFiles(e.target.files, biz, k); e.target.value="";
+});
+for (const id of ["afImg","afPdf"]) {
+  document.getElementById(id).addEventListener("change", e=>{
+    const f=e.target.files[0], biz=e.target.dataset.biz||_state.activeBiz, mode=e.target.dataset.mode||"bp";
+    e.target.value=""; if(!f) return;
+    runAutofill(f, biz, mode);
+  });
+}
+
+// ---------- Background image (corner control) ----------
+document.getElementById("bgFile").addEventListener("change", e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{ _state.bg=r.result; try{ commit(); }catch(err){ alert("That image is too large to store — try one under ~3 MB."); _state.bg=null; render(); } };
+  r.readAsDataURL(f);
+});
+
+// ---------- Data backup: move your data between devices ----------
+function exportData(){
+  const blob = new Blob([JSON.stringify(_state,null,2)], {type:"application/json"});
+  const a = document.createElement("a");
+  a.href = URL.createObjectURL(blob);
+  a.download = "big-business-data-" + new Date().toISOString().slice(0,10) + ".json";
+  a.click();
+}
+document.getElementById("dataFile").addEventListener("change", e=>{
+  const f=e.target.files[0]; e.target.value=""; if(!f) return;
+  const r=new FileReader();
+  r.onload=()=>{
+    try {
+      const s=JSON.parse(r.result);
+      if(!s.projects || !s.profiles) throw new Error("not a Big Business backup");
+      if(!confirm("Replace ALL current data with this backup?")) return;
+      _state=s; migrate(); commit();
+      alert("Data imported.");
+    } catch(err){ alert("Couldn't import: "+err.message); }
+  };
+  r.readAsText(f);
+});
+
+// ---------- Boot ----------
+load();
+// always open on Centauri World LLC → Strength
+_state.activeBiz = "centauri";
+_state.activeTab = "strength";
+render();
+setTimeout(()=>{ const sp=document.getElementById("splash"); if(sp) sp.remove(); }, 2400);
+// PWA: register service worker when served over https (skipped for local file use)
+if ("serviceWorker" in navigator && location.protocol === "https:") {
+  navigator.serviceWorker.register("sw.js").catch(()=>{});
+}
+// cloud sync: auto-reconnect if this device was linked before
+(async()=>{
+  const cfg = localStorage.getItem(CLOUD_CFG_KEY), code = localStorage.getItem(CLOUD_CODE_KEY);
+  if (cfg && code){ try { await cloudConnect(JSON.parse(cfg), code); render(); } catch(e) { console.error(e); } }
+})();
+// v3 — products sync + keypr theme
+</script>
+
+<script>
+/* ============================================================
+   BIG BUSINESS — "Autofill Contact from Link" (Apify)
+   Self-contained. Injects its own styles + UI. No HTML editing
+   beyond ONE <script> line. Works with your addContact() + ct-* fields.
+   Quick-and-dirty mode: Apify token stored in this browser.
+   ============================================================ */
+(function(){
+  "use strict";
+
+  var TOKEN_KEY  = "bigboss_apify_token";
+  var MAPS_ACTOR = "compass~crawler-google-places";
+  var SITE_ACTOR = "vdrmota~contact-info-scraper";
+
+  var $ = function(id){ return document.getElementById(id); };
+  var getToken = function(){ try{ return localStorage.getItem(TOKEN_KEY) || ""; }catch(e){ return ""; } };
+  var setToken = function(t){ try{ localStorage.setItem(TOKEN_KEY, t); }catch(e){} };
+  var status = function(msg){ var s=$("bbaf-status"); if(s) s.textContent = msg; };
+
+  /* ---------- inject styles ---------- */
+  function injectStyles(){
+    if($("bbaf-style")) return;
+    var css = ''
+      + '#bbaf-fab{position:fixed;right:18px;bottom:18px;z-index:99999;background:#E8B64C;color:#0a0a0d;border:none;border-radius:999px;padding:12px 16px;font-weight:700;font-size:14px;cursor:pointer;box-shadow:0 6px 20px rgba(0,0,0,.5);font-family:inherit}'
+      + '#bbaf-panel{position:fixed;right:18px;bottom:70px;z-index:99999;width:320px;background:#141419;color:#eee;border:1px solid #2a2a33;border-radius:14px;padding:14px;display:none;box-shadow:0 10px 30px rgba(0,0,0,.6);font-family:inherit;font-size:13px}'
+      + '#bbaf-panel h4{margin:0 0 8px;font-size:14px;color:#E8B64C}'
+      + '#bbaf-panel input{width:100%;box-sizing:border-box;margin:4px 0;padding:9px;background:#0a0a0d;border:1px solid #2a2a33;border-radius:8px;color:#eee;font-size:13px}'
+      + '#bbaf-panel button{width:100%;margin-top:6px;padding:10px;border:none;border-radius:8px;font-weight:700;cursor:pointer;font-size:13px;font-family:inherit}'
+      + '#bbaf-go{background:#1fd3ee;color:#0a0a0d}'
+      + '#bbaf-savetok{background:#2a2a33;color:#eee}'
+      + '#bbaf-status{margin-top:8px;font-size:12px;color:#9aa;min-height:16px;white-space:pre-wrap}'
+      + '#bbaf-tokwrap{border-top:1px solid #2a2a33;margin-top:10px;padding-top:8px}'
+      + '#bbaf-tokwrap.hidden{display:none}'
+      + '.bbaf-filled{outline:2px solid #E8B64C !important;transition:outline .3s}';
+    var st = document.createElement("style");
+    st.id = "bbaf-style";
+    st.textContent = css;
+    document.head.appendChild(st);
+  }
+
+  /* ---------- inject UI ---------- */
+  function injectUI(){
+    if($("bbaf-fab")) return;
+    var fab = document.createElement("button");
+    fab.id = "bbaf-fab";
+    fab.textContent = "⚡ Autofill";
+    document.body.appendChild(fab);
+
+    var panel = document.createElement("div");
+    panel.id = "bbaf-panel";
+    panel.innerHTML =
+        '<h4>⚡ Autofill Contact from Link</h4>'
+      + '<div style="font-size:12px;color:#9aa;margin-bottom:6px">Open a business → Contacts → start a new contact, then paste a <b>Google&nbsp;Maps</b> link or a company <b>website</b> and hit Autofill.</div>'
+      + '<input id="bbaf-url" placeholder="Paste Google Maps link or website URL">'
+      + '<button id="bbaf-go">Autofill →</button>'
+      + '<div id="bbaf-status"></div>'
+      + '<div id="bbaf-tokwrap">'
+      + '  <div style="font-size:12px;color:#9aa;margin-bottom:2px">Apify API token (saved on this device):</div>'
+      + '  <input id="bbaf-token" placeholder="apify_api_..." autocomplete="off">'
+      + '  <button id="bbaf-savetok">Save token</button>'
+      + '</div>';
+    document.body.appendChild(panel);
+  }
+
+  /* ---------- helpers ---------- */
+  function isMapsUrl(u){
+    return /google\.[a-z.]+\/maps|maps\.app\.goo\.gl|goo\.gl\/maps|maps\.google\./i.test(u);
+  }
+
+  async function runActor(actor, input){
+    var token = getToken();
+    if(!token) throw new Error("No Apify token saved. Add it at the bottom of this panel.");
+    var url = "https://api.apify.com/v2/acts/" + actor +
+              "/run-sync-get-dataset-items?token=" + encodeURIComponent(token) +
+              "&clean=true&format=json";
+    var res = await fetch(url, {
+      method:"POST",
+      headers:{"Content-Type":"application/json"},
+      body: JSON.stringify(input)
+    });
+    if(!res.ok){
+      var txt = await res.text().catch(function(){return "";});
+      throw new Error("Apify error " + res.status + (txt ? (": " + txt.slice(0,180)) : ""));
+    }
+    return await res.json();
+  }
+
+  function pickSocials(it){
+    var s = {};
+    var grab = function(arr){ return (arr && arr.length) ? arr[0] : ""; };
+    if(it.linkedIns) s.LinkedIn = grab(it.linkedIns);
+    if(it.facebooks) s.Facebook = grab(it.facebooks);
+    if(it.instagrams) s.Instagram = grab(it.instagrams);
+    if(it.twitters) s.X = grab(it.twitters);
+    if(it.youtubes) s.YouTube = grab(it.youtubes);
+    if(it.tiktoks) s.TikTok = grab(it.tiktoks);
+    return s;
+  }
+  function normMaps(it){
+    if(!it) return null;
+    var addr = it.address || [it.street, it.city, it.state, it.postalCode].filter(Boolean).join(", ");
+    return {
+      name: it.title || "",
+      role: it.categoryName || "Business",
+      phone: it.phone || it.phoneUnformatted || "",
+      email: (it.emails && it.emails[0]) || "",
+      website: it.website || "",
+      address: addr || "",
+      socials: pickSocials(it)
+    };
+  }
+  function normSite(it, fallbackUrl){
+    if(!it) return null;
+    var phones = (it.phones && it.phones.length ? it.phones : it.phonesUncertain) || [];
+    return {
+      name: "",
+      role: "Business",
+      phone: phones[0] || "",
+      email: (it.emails && it.emails[0]) || "",
+      website: it.originalStartUrl || it.domain || fallbackUrl || "",
+      address: "",
+      socials: pickSocials(it)
+    };
+  }
+  function buildNotes(d){
+    var lines = [];
+    if(d.website) lines.push("Website: " + d.website);
+    if(d.address) lines.push("Address: " + d.address);
+    var soc = Object.keys(d.socials || {}).filter(function(k){ return d.socials[k]; });
+    soc.forEach(function(k){ lines.push(k + ": " + d.socials[k]); });
+    return lines.join("  |  ");
+  }
+
+  function ensureContactForm(){
+    try{
+      if(window.ui && window.ui.showForm){
+        window.ui.showForm.ct = true;
+        if(typeof window.render === "function") window.render();
+      }
+    }catch(e){}
+  }
+  function setField(id, val){
+    var el = $(id);
+    if(el && val){
+      el.value = val;
+      el.classList.add("bbaf-filled");
+      setTimeout(function(){ el.classList.remove("bbaf-filled"); }, 1500);
+      return true;
+    }
+    return false;
+  }
+  function fillContact(d){
+    ensureContactForm();
+    if(!$("ct-name")) return false;
+    setField("ct-name",  d.name);
+    setField("ct-role",  d.role);
+    setField("ct-phone", d.phone);
+    setField("ct-email", d.email);
+    setField("ct-notes", buildNotes(d));
+    return true;
+  }
+
+  async function autofill(){
+    var raw = ($("bbaf-url").value || "").trim();
+    if(!raw){ status("Paste a link first."); return; }
+    if(!getToken()){ status("Add your Apify token below first."); return; }
+
+    var isMaps = isMapsUrl(raw);
+    status((isMaps ? "Reading Google Maps listing" : "Reading website") + "… (10–40s)");
+
+    try{
+      var items, data;
+      if(isMaps){
+        items = await runActor(MAPS_ACTOR, {
+          startUrls: [{ url: raw }],
+          maxCrawledPlacesPerSearch: 1,
+          scrapeContacts: true,
+          language: "en",
+          maxReviews: 0, maxImages: 0
+        });
+        data = normMaps(items && items[0]);
+      } else {
+        items = await runActor(SITE_ACTOR, {
+          startUrls: [{ url: raw }],
+          maxDepth: 1,
+          maxRequestsPerStartUrl: 10,
+          mergeContacts: true,
+          proxyConfig: { useApifyProxy: true }
+        });
+        data = normSite(items && items[0], raw);
+      }
+
+      if(!data){ status("Nothing found for that link. Try the other type of link."); return; }
+
+      var ok = fillContact(data);
+      if(ok){
+        status("✓ Filled: " + (data.name || data.website || "contact") +
+               ".\nReview the fields, then click 💾 SAVE CONTACT.");
+      } else {
+        status("Found it, but no contact form is open.\nOpen a business → Contacts → new contact, then Autofill again.\n\n" +
+               [data.name && ("Name: "+data.name),
+                data.phone && ("Phone: "+data.phone),
+                data.email && ("Email: "+data.email),
+                data.website && ("Web: "+data.website),
+                data.address && ("Addr: "+data.address)
+               ].filter(Boolean).join("\n"));
+      }
+    }catch(err){
+      var m = String(err && err.message || err);
+      if(/Failed to fetch|CORS|NetworkError/i.test(m)){
+        status("Network/CORS blocked the request.\nTell Claude and we'll switch to the tiny proxy version.");
+      } else {
+        status("⚠ " + m);
+      }
+    }
+  }
+
+  /* ---------- wire up ---------- */
+  function init(){
+    injectStyles();
+    injectUI();
+    $("bbaf-fab").addEventListener("click", function(){
+      var p = $("bbaf-panel");
+      p.style.display = (p.style.display === "block") ? "none" : "block";
+      $("bbaf-tokwrap").classList.toggle("hidden", !!getToken());
+      if(getToken()) $("bbaf-token").value = "";
+    });
+    $("bbaf-go").addEventListener("click", autofill);
+    $("bbaf-url").addEventListener("keydown", function(e){ if(e.key === "Enter") autofill(); });
+    $("bbaf-savetok").addEventListener("click", function(){
+      var t = ($("bbaf-token").value || "").trim();
+      if(!t){ status("Paste your token first."); return; }
+      setToken(t);
+      $("bbaf-tokwrap").classList.add("hidden");
+      status("✓ Token saved on this device.");
+    });
+  }
+
+  if(document.readyState === "loading"){
+    document.addEventListener("DOMContentLoaded", init);
+  } else { init(); }
+})();
+
+</script>
+</body>
+</html>
