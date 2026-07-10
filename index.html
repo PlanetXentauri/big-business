@@ -1923,6 +1923,10 @@ document.addEventListener("paste", e=>{
   if (imgs.length) { e.preventDefault(); addDocFiles(imgs, _state.activeBiz); }
 });
 
+/* === drag-and-drop into Saved Files (added) === */
+(function(){function onP(){try{return _state.activeTab==="profile";}catch(e){return false;}}function hasF(e){return e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],"Files")>=0;}function cue(o){document.body.style.outline=o?"3px dashed #f5b301":"";document.body.style.outlineOffset=o?"-10px":"";}window.addEventListener("dragover",function(e){if(onP()&&hasF(e)){e.preventDefault();try{e.dataTransfer.dropEffect="copy";}catch(_){}cue(true);}});window.addEventListener("dragleave",function(e){if(e.relatedTarget===null)cue(false);});window.addEventListener("dragend",function(){cue(false);});window.addEventListener("drop",function(e){if(onP()&&e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length){e.preventDefault();cue(false);addDocFiles(e.dataTransfer.files,_state.activeBiz);}});})();
+
+
 // ---------- Autofill file picker ----------
 document.getElementById("skFile").addEventListener("change", e=>{
   const biz=e.target.dataset.biz||_state.activeBiz, k=e.target.dataset.k;
