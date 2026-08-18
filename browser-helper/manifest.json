@@ -1,0 +1,18 @@
+{
+  "manifest_version": 3,
+  "name": "Big Business Page Helper",
+  "version": "1.0.0",
+  "description": "Send the visible page and original URL to Big Business for evidence-based review.",
+  "permissions": ["activeTab", "scripting", "tabs"],
+  "host_permissions": ["https://planetxentauri.github.io/big-business/*"],
+  "background": { "service_worker": "background.js" },
+  "action": {
+    "default_title": "Send page to Big Business",
+    "default_popup": "popup.html"
+  },
+  "content_scripts": [{
+    "matches": ["https://planetxentauri.github.io/big-business/*"],
+    "js": ["dashboard-bridge.js"],
+    "run_at": "document_start"
+  }]
+}

@@ -55,6 +55,7 @@ var MATCH = require(path.join(JS, "business-matcher.js")); global.DOCAI.business
 var CLASS = require(path.join(JS, "classifier.js")); global.DOCAI.classifier = CLASS;
 var LU = require(path.join(JS, "link-url.js")); global.DOCAI.linkUrl = LU;
 var LH = require(path.join(JS, "link-html.js")); global.DOCAI.linkHtml = LH;
+var BH = require(path.join(JS, "browser-helper-bridge.js")); global.DOCAI.browserHelper = BH;
 var LF = require(path.join(JS, "link-fetch.js")); global.DOCAI.linkFetch = LF;
 var LC = require(path.join(JS, "link-classifier.js")); global.DOCAI.linkClassifier = LC;
 var LE = require(path.join(JS, "link-extractors.js")); global.DOCAI.linkExtractors = LE;
@@ -177,6 +178,61 @@ ok(!LU.sameNormalized("https://example.test/a?id=1", "https://example.test/a?id=
   "a meaningful query parameter is NOT ignored");
 eq(LU.registrableDomain("shop.example.co.uk"), "example.co.uk", "two-part suffixes are handled");
 
+suite("Browser-helper capture validation");
+var helperPayload = {
+  kind: "page-capture",
+  version: 1,
+  url: "https://registry.test/entity/123",
+  title: "Example Registry Record",
+  canonical: "https://registry.test/entity/123",
+  text: "Entity Name: EXAMPLE COMPANY\nDocument Number: X123\nStatus: Active",
+  meta: { description: "Public entity record", "og:title": "Registry", secret: "drop me" },
+  jsonld: [JSON.stringify({ "@type": "Corporation", name: "EXAMPLE COMPANY" })],
+  capturedAt: Date.now()
+};
+var helperChecked = BH.validate(helperPayload);
+ok(helperChecked.ok, "a valid rendered-page capture is accepted");
+eq(helperChecked.capture.url, helperPayload.url, "the original URL is preserved");
+eq(helperChecked.capture.meta.description, "Public entity record", "safe metadata is retained");
+eq(helperChecked.capture.meta.secret, undefined, "unapproved metadata is discarded");
+ok(!BH.validate({ kind: "page-capture", url: "javascript:alert(1)", text: "x" }).ok,
+  "an unsafe source URL is refused");
+ok(!BH.validate({ kind: "page-capture", url: "https://empty.test/", text: "" }).ok,
+  "an empty capture is refused rather than invented");
+var inert = BH.toInertHtml(helperChecked.capture);
+ok(inert.indexOf("Entity Name: EXAMPLE COMPANY") >= 0, "visible text reaches the inert document");
+var hostileCapture = BH.validate({
+  kind: "page-capture", url: "https://hostile.test/", title: "</title><script>alert(1)</script>",
+  text: "<img src=x onerror=alert(1)>", jsonld: []
+});
+var hostileInert = BH.toInertHtml(hostileCapture.capture);
+ok(hostileInert.indexOf("<script>alert(1)</script>") < 0, "a hostile title is escaped");
+ok(hostileInert.indexOf("<img src=x") < 0, "hostile visible text is escaped");
+
+suite("Browser-helper extension permissions and privacy");
+var helperDir = path.join(__dirname, "..", "browser-helper");
+var manifest = JSON.parse(fs.readFileSync(path.join(helperDir, "manifest.json"), "utf8"));
+eq(manifest.permissions.sort(), ["activeTab", "scripting", "tabs"],
+  "only the three required extension permissions are requested");
+eq(manifest.host_permissions, ["https://planetxentauri.github.io/big-business/*"],
+  "host permission is limited to the dashboard delivery origin");
+ok(JSON.stringify(manifest).indexOf("<all_urls>") < 0,
+  "the extension has no always-on all-sites permission");
+var helperBackground = fs.readFileSync(path.join(helperDir, "background.js"), "utf8");
+ok(!/\bfetch\s*\(|XMLHttpRequest|sendBeacon|WebSocket/.test(helperBackground),
+  "the extension contains no page-upload or network client");
+ok(/document\.body\.innerText/.test(helperBackground), "it reads rendered visible text");
+ok(!/\.value\b|document\.cookie|localStorage|sessionStorage/.test(helperBackground),
+  "it does not read form values, cookies, or browser storage");
+var dashboardBridge = fs.readFileSync(path.join(helperDir, "dashboard-bridge.js"), "utf8");
+ok(dashboardBridge.indexOf(BH.CHANNEL) >= 0,
+  "extension and dashboard use the same named bridge channel");
+var appIndex = fs.readFileSync(path.join(__dirname, "..", "index.html"), "utf8");
+ok(appIndex.indexOf("js/doc/browser-helper-bridge.js") >= 0,
+  "the dashboard loads the helper bridge");
+ok(appIndex.indexOf("docaiReceiveBrowserCapture") >= 0,
+  "captured pages enter the dashboard review path");
+
 /* ============================================================
    2 — HTML reading and safety
    ============================================================ */
@@ -246,6 +302,36 @@ function runLink(url, html, state, extra) {
 }
 
 var chain = Promise.resolve();
+
+chain = chain.then(function () {
+  suite("Browser helper → existing link pipeline");
+  var st = seeded();
+  var capture = BH.validate({
+    kind: "page-capture",
+    url: "https://registry.test/entity/keypr-sample",
+    title: "Detail by Entity Name",
+    text: "State Registration Record\nKEYPR ON COMPANY\n" +
+      "Document Number: P25000009999\nDate Filed: 01/08/2025\n" +
+      "State: FL\nStatus: ACTIVE\nPrincipal Address: 100 Example Street, Miami, FL 33101\n" +
+      "Registered Agent Name: Example Agent Services LLC",
+    meta: {}, jsonld: [], capturedAt: Date.now()
+  }).capture;
+  var beforeCalls = netCalls.length;
+  return LP.run(capture.url, {
+    state: st,
+    profiles: profilesOf(st),
+    pastedText: BH.toInertHtml(capture),
+    onStatus: function () {}
+  }).then(function (p) {
+    eq(p.retrievalStatus, "pasted", "the capture uses the local pasted-content path");
+    eq(netCalls.length, beforeCalls, "sending a captured page makes no external request");
+    eq(p.business.business, "keypr", "business matching still chooses the evidenced business");
+    eq(candFor(p, "bp.stateRegNum").value, "P25000009999", "a registry document number is extracted");
+    eq(p.url, capture.url, "the clickable original page remains the source URL");
+    eq(st.docs.keypr.web.length, 0, "analysis alone still saves nothing");
+    return null;
+  });
+});
 
 chain = chain.then(function () {
   suite("Directly accessible page");

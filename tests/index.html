@@ -65,6 +65,7 @@ OCR, IndexedDB, live network behaviour and web-link retrieval. Run <code>node te
 <script src="../js/doc/link-store.js"></script>
 <script src="../js/doc/link-pipeline.js"></script>
 <script src="../js/doc/link-review.js"></script>
+<script src="../js/doc/browser-helper-bridge.js"></script>
 
 <script>
 /* ---------- harness ---------- */
@@ -245,6 +246,7 @@ async function runAll() {
   await testEndToEnd();
   await testLinkDom();
   await testLinkSafety();
+  await testBrowserHelper();
   await testLinkLive();
   await testLinkEndToEnd();
   testNetwork();
@@ -624,6 +626,46 @@ async function testLinkSafety() {
   await new Promise(function (r) { setTimeout(r, 40); });
   eq(typeof window.__escapeFail, "undefined", "markup in a page title cannot execute when displayed");
   eq(el.querySelectorAll("img").length, 0, "…and produces no element");
+}
+
+async function testBrowserHelper() {
+  suite("Link — browser-helper bridge");
+  var capture = {
+    kind: "page-capture",
+    version: 1,
+    url: "https://registry.test/entity/123",
+    title: "Registry Record",
+    canonical: "https://registry.test/entity/123",
+    text: "Entity Name: SAMPLE COMPANY\nDocument Number: X123\nStatus: ACTIVE",
+    meta: { description: "Public registration record" },
+    jsonld: [JSON.stringify({ "@type": "Corporation", name: "SAMPLE COMPANY" })],
+    capturedAt: Date.now()
+  };
+  var checked = DOCAI.browserHelper.validate(capture);
+  ok(checked.ok, "a valid extension capture is accepted");
+  eq(checked.capture.url, capture.url, "the original source URL survives the bridge");
+
+  var inert = DOCAI.browserHelper.toInertHtml(checked.capture);
+  var parsed = DOCAI.linkHtml.parse(inert, capture.url);
+  eq(parsed.title, "Registry Record", "the captured title reaches the inert parser");
+  ok(parsed.text.indexOf("Document Number: X123") >= 0, "rendered visible text reaches extraction");
+  eq(parsed.organization.name, "SAMPLE COMPANY", "safe JSON-LD survives the bridge");
+  ok(inert.indexOf("<iframe") < 0 && inert.indexOf("onerror=") < 0,
+    "the generated document contains no active page markup");
+
+  var received = null, receiveError = null;
+  var remove = DOCAI.browserHelper.install(function (value, error) {
+    received = value; receiveError = error;
+  });
+  window.postMessage({
+    channel: DOCAI.browserHelper.CHANNEL,
+    type: "IMPORT_CAPTURE",
+    payload: capture
+  }, location.origin);
+  await new Promise(function (resolve) { setTimeout(resolve, 50); });
+  remove();
+  ok(!receiveError && received && received.url === capture.url,
+    "the extension message is accepted only through the named same-origin channel");
 }
 
 /* ---------- live network behaviour ---------- */

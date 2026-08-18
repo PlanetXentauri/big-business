@@ -168,6 +168,7 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 <script src="js/doc/link-store.js"></script>
 <script src="js/doc/link-pipeline.js"></script>
 <script src="js/doc/link-review.js"></script>
+<script src="js/doc/browser-helper-bridge.js"></script>
 </head>
 <body>
 
@@ -1251,7 +1252,8 @@ function autofillHintHTML(){
     <b style="color:#e2e8f0">AUTOFILL FROM PHOTO</b> and <b style="color:#e2e8f0">AUTOFILL FROM PDF</b> read a file you already have.
     <b style="color:var(--accent)">ADD LINK &amp; AUTOFILL</b> reads a web page — it fills your fields
     <b style="color:#e2e8f0">and</b> saves the clickable link under this business.<br>
-    You review everything before anything saves. 🔒 It all stays on this device.
+    You review everything before anything saves. 🔒 It all stays on this device.<br>
+    <span style="color:#8794ab">Blocked site? Open it and use the optional <b style="color:var(--accent)">Big Business Page Helper</b>.</span>
   </div>`;
 }
 function docaiPickLink(biz){
@@ -1293,7 +1295,7 @@ function webLinkPanelHTML(biz){
       🔒 The page is read in this browser and nothing is uploaded. No AI or scraping service is involved.<br>
       ⚠ Browsers only let a page read another site when that site allows it. Many pages — anything behind a
       login, bot protection, or without CORS headers — cannot be read this way. When that happens you will be
-      told plainly, and offered the alternatives: open it, paste its text, or save it as a PDF.
+      told plainly, and offered the alternatives: use the Big Business Page Helper, paste its text, or save it as a PDF.
     </div>`;
 
   if (saved.length){
@@ -1305,9 +1307,9 @@ function webLinkPanelHTML(biz){
           <span style="flex:1;min-width:0;font-size:12px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
             ${esc(r.title || r.url)}</span>
           <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px"
-            onclick="DOCAI.linkReview.openUrl(${DOCAI.linkReview.jsArg(r.finalUrl||r.url)})">↗ OPEN</button>
+            onclick="DOCAI.linkReview.openUrl(${DOCAI.linkReview.jsArg(r.url||r.finalUrl)})">↗ OPEN ORIGINAL</button>
           <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px"
-            onclick="ui.webLinkTyped=${DOCAI.linkReview.jsArg(r.finalUrl||r.url)};render()">USE</button>
+            onclick="ui.webLinkTyped=${DOCAI.linkReview.jsArg(r.url||r.finalUrl)};render()">USE</button>
         </div>`).join("") +
       (saved.length>6?`<div style="font-size:11px;color:#6b7a90">…and ${saved.length-6} more in Saved Web Sources below.</div>`:"") +
       `</div>`;
@@ -1370,6 +1372,26 @@ async function docaiAnalyzeLink(biz, pastedText){
     ui.showForm.weblink = true;
     render();
   }
+}
+
+// Optional Chrome/Edge/Brave helper. The extension sends only an inert page
+// capture; this bridge validates it and feeds it through the exact same review
+// path as pasted text. It cannot write state or auto-confirm a business.
+async function docaiReceiveBrowserCapture(capture, error){
+  if (error || !capture){
+    ui.afStatus = "Browser helper: " + (error || "No readable page was received.");
+    render();
+    return;
+  }
+  const biz = _state.activeBiz;
+  _state.activeTab = "strength";
+  ui.webLinkBiz = biz;
+  ui.webLinkTyped = capture.url;
+  ui.webLinkLastUrl = capture.url;
+  ui.showForm.weblink = false;
+  ui.afStatus = "Browser helper captured “" + (capture.title || DOCAI.linkUrl.display(capture.url, 55)) + "”. Building the review…";
+  render();
+  await docaiAnalyzeLink(biz, DOCAI.browserHelper.toInertHtml(capture));
 }
 
 // ---------- saved web sources: recheck, edit, remove ----------
@@ -2061,6 +2083,9 @@ document.getElementById("dataFile").addEventListener("change", e=>{
 });
 
 // ---------- Boot ----------
+if (window.DOCAI && DOCAI.browserHelper) {
+  DOCAI.browserHelper.install(docaiReceiveBrowserCapture);
+}
 load();
 // always open on Centauri World LLC → Strength
 _state.activeBiz = "centauri";

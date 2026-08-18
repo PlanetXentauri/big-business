@@ -1,0 +1,13 @@
+:root { color-scheme: dark; }
+* { box-sizing: border-box; }
+body { margin: 0; width: 330px; background: #0a0a0d; color: #e2e8f0; font: 13px/1.5 ui-monospace, SFMono-Regular, Consolas, monospace; }
+main { padding: 18px; }
+.eyebrow { color: #e8b64c; font-size: 11px; font-weight: 800; letter-spacing: .24em; }
+h1 { margin: 5px 0 8px; font-size: 22px; }
+p { margin: 0 0 14px; color: #a9b5ca; }
+button { width: 100%; border: 0; border-radius: 8px; padding: 12px; background: #e8b64c; color: #0a0a0d; font: inherit; font-weight: 900; cursor: pointer; }
+button:disabled { opacity: .6; cursor: wait; }
+#status { min-height: 38px; margin-top: 10px; color: #9aa8c2; }
+#status.ok { color: #10b981; }
+#status.bad { color: #f59e0b; }
+.privacy { border-top: 1px solid rgba(255,255,255,.1); margin-top: 10px; padding-top: 10px; color: #738198; font-size: 11px; }
