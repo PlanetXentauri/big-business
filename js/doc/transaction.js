@@ -237,6 +237,18 @@
       detachCheckpoints(state, j, j.webId);
     }
 
+    // An exact-duplicate save can enrich an existing link instead of
+    // creating a second record. Restore that record and remove only the
+    // checkpoint attachments this import added.
+    if (j.webUpdatedId && j.webUpdatedBefore) {
+      var existingWeb = state.docs[j.biz] && state.docs[j.biz].web;
+      if (existingWeb) {
+        var existingAt = existingWeb.findIndex(function (r) { return r.id === j.webUpdatedId; });
+        if (existingAt >= 0) existingWeb[existingAt] = j.webUpdatedBefore;
+      }
+      detachAddedCheckpoints(state, j);
+    }
+
     T.lastImport = null;
     if (hooks.commit) hooks.commit();
 
@@ -252,7 +264,8 @@
         ok: true,
         message: "Undid the import of “" + j.fileName + "” — " +
           j.fieldWrites.length + " field(s) restored" +
-          (j.docId ? " and the document removed." : j.webId ? " and the saved link removed." : ".")
+          (j.docId ? " and the document removed." : j.webId ? " and the saved link removed." :
+            j.webUpdatedId ? " and the saved link restored." : ".")
       };
     });
   };
@@ -307,20 +320,38 @@
       historyWrites: [],
       docId: null,
       webId: null,
+      webUpdatedId: null,
+      webUpdatedBefore: null,
       textId: null,
       blobId: null,
-      checkpoints: []
+      checkpoints: [],
+      checkpointAttachments: []
     };
 
     var fields = (decisions.fields || []).filter(function (f) {
       return f && f.dest && !MAP.isInternal(f.dest) && String(f.value).trim() !== "";
     });
 
-    var recordId = U.uid("web");
+    var duplicateChoice = decisions.duplicateChoice || "";
+    var duplicate = (proposal.exactDuplicates || []).filter(function (d) {
+      return d.biz === biz && (!decisions.existingWebId || d.record.id === decisions.existingWebId);
+    })[0] || null;
+    var updateExisting = !!duplicate && duplicateChoice && duplicateChoice !== "both";
+    if ((proposal.exactDuplicates || []).length && !duplicateChoice) {
+      return Promise.reject(new Error("This link is already saved — choose how to handle the existing link."));
+    }
+    if (duplicateChoice && duplicateChoice !== "both" && !duplicate) {
+      return Promise.reject(new Error("The saved link belongs to a different business. Choose that business or keep both intentionally."));
+    }
+    if (duplicateChoice === "meta" || duplicateChoice === "recheck") fields = [];
+
+    var recordId = updateExisting ? duplicate.record.id : U.uid("web");
 
     // Page text goes to IndexedDB, never into state. If that fails the import
     // still proceeds — the text is a convenience, the record is the point.
-    var textStep = (decisions.keepText !== false && proposal.pageText)
+    var textStep = updateExisting
+      ? Promise.resolve(duplicate.record.textRef || null)
+      : (decisions.keepText !== false && proposal.pageText)
       ? LS.putText(recordId, proposal.pageText, proposal.finalUrl || proposal.url)
           .then(function (ref) { journal.textId = ref; return ref; })
           .catch(function () { return null; })
@@ -360,8 +391,13 @@
         journal.checkpoints.push(typeCheckpoint);
         journal.typeCheckpoint = typeCheckpoint;
       }
+      if (updateExisting && duplicateChoice === "link") {
+        journal.checkpoints = unique(journal.checkpoints.concat(
+          MAP.checkpointsFor(fields.map(function (f) { return f.dest; }))
+        ));
+      }
 
-      // ---- the link record
+      // ---- link evidence
       var evidence = fields.map(function (f) {
         var c = findCandidate(proposal, f.dest);
         return {
@@ -406,24 +442,57 @@
         notes: decisions.notes || ""
       });
 
-      // Remember whether this import created the array, so undo can restore
-      // the exact original shape without deleting one that pre-existed.
-      journal.webArrayCreated = !(state.docs[biz] && state.docs[biz].web);
-      LS.ensure(state, biz).unshift(rec);
-      journal.webId = rec.id;
+      if (updateExisting) {
+        var current = duplicate.record;
+        journal.webUpdatedId = current.id;
+        journal.webUpdatedBefore = JSON.parse(JSON.stringify(current));
+
+        if (duplicateChoice === "meta" || duplicateChoice === "recheck") {
+          current.title = rec.title || current.title;
+          current.finalUrl = rec.finalUrl || current.finalUrl;
+          current.canonicalUrl = rec.canonicalUrl || current.canonicalUrl;
+          current.domain = rec.domain || current.domain;
+          current.siteType = rec.siteType;
+          current.siteTypeLabel = rec.siteTypeLabel;
+          current.category = rec.category;
+          current.issuer = rec.issuer || current.issuer;
+          current.retrievalStatus = rec.retrievalStatus;
+          current.retrievalNote = rec.retrievalNote;
+          current.httpStatus = rec.httpStatus;
+          current.redirected = rec.redirected;
+          current.contentHash = rec.contentHash || current.contentHash;
+          current.lastCheckedAt = Date.now();
+        }
+
+        var supported = fields.map(function (f) { return f.dest; });
+        current.linkedFields = unique((current.linkedFields || []).concat(supported));
+        current.linkedCheckpoints = unique((current.linkedCheckpoints || []).concat(journal.checkpoints));
+        current.evidence = mergeEvidence(current.evidence || [], evidence, LS.MAX_EVIDENCE || 12);
+        current.reviewStatus = "reviewed";
+        rec = current;
+      } else {
+        // Remember whether this import created the array, so undo can restore
+        // the exact original shape without deleting one that pre-existed.
+        journal.webArrayCreated = !(state.docs[biz] && state.docs[biz].web);
+        LS.ensure(state, biz).unshift(rec);
+        journal.webId = rec.id;
+      }
 
       // Attach to every checkpoint it evidences, so the source sits beside
       // the item it proves.
       journal.checkpoints.forEach(function (cp) {
         state.strengthFiles[biz] = state.strengthFiles[biz] || {};
         var arr = (state.strengthFiles[biz][cp] = state.strengthFiles[biz][cp] || []);
-        arr.push({
+        if (updateExisting && arr.some(function (f) { return f.linkOf === rec.id; })) return;
+        var attachment = {
           id: U.uid("skf"),
           name: (proposal.title || proposal.domain || proposal.url).slice(0, 120),
           type: "text/uri-list",
           size: 0, ts: Date.now(), dataUri: null, ref: false,
           docaiWeb: true, url: proposal.finalUrl || proposal.url, linkOf: rec.id
-        });
+        };
+        arr.push(attachment);
+        journal.checkpointAttachments.push({ checkpoint: cp, id: attachment.id });
       });
 
       T.lastImport = journal;
@@ -431,6 +500,27 @@
       return journal;
     });
   };
+
+  function unique(values) {
+    return values.filter(function (v, i, all) { return all.indexOf(v) === i; });
+  }
+
+  function detachAddedCheckpoints(state, j) {
+    (j.checkpointAttachments || []).forEach(function (added) {
+      var arr = state.strengthFiles[j.biz] && state.strengthFiles[j.biz][added.checkpoint];
+      if (!arr) return;
+      var left = arr.filter(function (f) { return f.id !== added.id; });
+      if (left.length) state.strengthFiles[j.biz][added.checkpoint] = left;
+      else delete state.strengthFiles[j.biz][added.checkpoint];
+    });
+  }
+
+  function mergeEvidence(existing, incoming, limit) {
+    var replaced = incoming.map(function (e) { return e.dest; });
+    return incoming.concat(existing.filter(function (e) {
+      return replaced.indexOf(e.dest) < 0;
+    })).slice(0, limit);
+  }
 
   function findCandidate(proposal, dest) {
     var list = proposal.candidates || [];

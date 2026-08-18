@@ -28,11 +28,15 @@
   /* ---------- open ---------- */
   R.open = function (proposal, ctx) {
     var isLink = proposal.source === "link";
+    var detectedBiz = proposal.business.business || null;
+    var sameBizDuplicate = isLink && detectedBiz && (proposal.exactDuplicates || []).some(function (d) {
+      return d.biz === detectedBiz;
+    });
     R.session = {
       proposal: proposal,
       isLink: isLink,
       ctx: ctx,                          // { state, commit, render, activeBiz }
-      biz: proposal.business.business || null,
+      biz: detectedBiz,
       docType: proposal.classification.typeId,
       category: proposal.classification.category,
       siteType: isLink ? proposal.classification.typeId : null,
@@ -46,7 +50,9 @@
       resolutions: {},                   // dest -> keep | replace | alternate
       expanded: {},
       previewUrl: null,
-      duplicateChoice: null,
+      // Reusing the already-saved source is the safe default: selected
+      // values can save without creating a silent duplicate copy.
+      duplicateChoice: sameBizDuplicate ? "link" : null,
       status: ""
     };
     // Pre-resolve conflicts to "keep" so an unattended save can never
@@ -427,6 +433,14 @@
       return s.checked[c.id] && R.existingValue(c.dest) !== "" && s.resolutions[c.dest] === "replace";
     }).length;
     var blocked = !s.biz;
+    var exactLink = s.isLink && p.exactDuplicates && p.exactDuplicates.length;
+    var saveLabel = s.isLink
+      ? (exactLink && s.duplicateChoice === "link"
+          ? '✅ SAVE ' + ticked + ' VALUE(S) TO EXISTING LINK'
+          : exactLink && (s.duplicateChoice === "meta" || s.duplicateChoice === "recheck")
+            ? '✅ UPDATE SAVED LINK'
+            : '✅ SAVE ' + ticked + ' VALUE(S) + LINK')
+      : '✅ SAVE SELECTED (' + ticked + ')';
 
     var out = "";
     if (s.status) {
@@ -449,7 +463,7 @@
     out += '<div class="row" style="flex-wrap:wrap">' +
       '<button class="btn btn-red" style="flex:2;min-width:150px"' + (blocked ? ' disabled' : '') +
       ' onclick="DOCAI.reviewUI.saveSelected()">' +
-      (s.isLink ? '✅ SAVE ' + ticked + ' VALUE(S) + LINK' : '✅ SAVE SELECTED (' + ticked + ')') + '</button>' +
+      saveLabel + '</button>' +
       '<button class="btn btn-ghost" style="flex:1;min-width:140px" onclick="DOCAI.reviewUI.saveDocOnly()">' +
       (s.isLink ? '🔗 SAVE LINK ONLY' : '📂 SAVE DOCUMENT ONLY') + '</button>' +
       '<button class="btn btn-ghost" style="flex:1;min-width:100px" onclick="DOCAI.reviewUI.cancel()">✕ CANCEL</button>' +
@@ -474,6 +488,9 @@
     s.proposal.candidates.forEach(function (c) {
       if (R.existingValue(c.dest) !== "") s.resolutions[c.dest] = "keep";
     });
+    if (s.isLink && s.proposal.exactDuplicates && s.proposal.exactDuplicates.length) {
+      s.duplicateChoice = s.proposal.exactDuplicates.some(function (d) { return d.biz === id; }) ? "link" : null;
+    }
     repaint();
   };
   R.setDocType = function (id) {
@@ -581,6 +598,10 @@
     });
   }
 
+  function selectedDuplicate(s) {
+    return (s.proposal.exactDuplicates || []).filter(function (d) { return d.biz === s.biz; })[0] || null;
+  }
+
   R.saveSelected = function () {
     var s = R.session; if (!s) return;
     if (!s.biz) { s.status = "Choose the business first."; repaint(); return; }
@@ -597,6 +618,8 @@
       category: s.category,
       checkpoint: ((D.linkClassifier && D.linkClassifier.byId(s.siteType)) || {}).checkpoint,
       keepText: true,
+      duplicateChoice: s.duplicateChoice,
+      existingWebId: selectedDuplicate(s) && selectedDuplicate(s).record.id,
       fields: collectFields()
     } : {
       biz: s.biz,
@@ -606,6 +629,9 @@
       saveDocument: s.duplicateChoice !== "meta" && s.duplicateChoice !== "link",
       fields: collectFields()
     };
+    if (s.isLink && (s.duplicateChoice === "meta" || s.duplicateChoice === "recheck")) {
+      decisions.fields = [];
+    }
     s.status = "Saving…"; repaint();
 
     (s.isLink ? TX.saveLink : TX.save)(s.ctx.state, s.proposal, decisions, { commit: s.ctx.commit })
@@ -615,7 +641,7 @@
         var kept = decisions.fields.length - journal.fieldWrites.length;
         var msg = "✓ Saved " + journal.fieldWrites.length + " value(s) to " + BIZ_LABEL[journal.biz] +
           (kept > 0 ? " · kept " + kept + " existing value(s) and filed the new one(s) as alternates" : "") +
-          (journal.docId ? " · document filed." : journal.webId ? " · web source saved." : ".") +
+          (journal.docId ? " · document filed." : journal.webUpdatedId ? " · existing web source updated." : journal.webId ? " · web source saved." : ".") +
           (journal.blobError ? " The file itself could not be stored: " + journal.blobError : "");
         R.close();
         if (s.ctx.onSaved) s.ctx.onSaved(msg);
@@ -633,12 +659,17 @@
     if (s.isLink) {
       s.status = "Saving the link…"; repaint();
       var lc = (D.linkClassifier && D.linkClassifier.byId(s.siteType)) || {};
+      var existing = selectedDuplicate(s);
       TX.saveLinkOnly(s.ctx.state, s.proposal, {
         biz: s.biz, siteType: s.siteType, siteTypeLabel: lc.label,
-        category: s.category, checkpoint: lc.checkpoint, keepText: true
+        category: s.category, checkpoint: lc.checkpoint, keepText: true,
+        duplicateChoice: s.duplicateChoice,
+        existingWebId: existing && existing.record.id
       }, { commit: s.ctx.commit })
         .then(function (journal) {
-          var msg = "✓ Saved the link under " + BIZ_LABEL[journal.biz] + ". No field values were changed.";
+          var msg = journal.webUpdatedId
+            ? "✓ Updated the already-saved link under " + BIZ_LABEL[journal.biz] + ". No duplicate was created."
+            : "✓ Saved the link under " + BIZ_LABEL[journal.biz] + ". No field values were changed.";
           R.close();
           if (s.ctx.onSaved) s.ctx.onSaved(msg);
         })

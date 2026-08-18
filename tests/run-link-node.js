@@ -73,6 +73,8 @@ global.DOCAI.store = {
 var LS = require(path.join(JS, "link-store.js")); global.DOCAI.linkStore = LS;
 var LP = require(path.join(JS, "link-pipeline.js")); global.DOCAI.linkPipeline = LP;
 var TX = require(path.join(JS, "transaction.js")); global.DOCAI.transaction = TX;
+var REVIEW = require(path.join(JS, "review-ui.js")); global.DOCAI.reviewUI = REVIEW;
+var LINK_REVIEW = require(path.join(JS, "link-review.js")); global.DOCAI.linkReview = LINK_REVIEW;
 
 /* ---------- fetch stub ----------
    Records every call so the suite can prove nothing was uploaded and no
@@ -670,6 +672,34 @@ chain = chain.then(function () {
       }).then(function (p2) {
         eq(p2.exactDuplicates.length, 1, "the same page under a different address is an exact duplicate");
         eq(p2.exactDuplicates[0].biz, "centauri", "…found under the right business");
+
+        REVIEW.open(p2, {
+          state: st, activeBiz: "centauri", commit: function () {}, render: function () {}
+        });
+        eq(REVIEW.session.duplicateChoice, "link",
+          "the safe default is to enrich the existing link rather than block Save");
+        ok(REVIEW.html().indexOf("TO EXISTING LINK") >= 0,
+          "the Save button clearly says it will use the existing link");
+        REVIEW.close();
+
+        var beforeReuse = JSON.stringify(st);
+        var existingId = p2.exactDuplicates[0].record.id;
+        return TX.saveLink(st, p2, {
+          biz: "centauri", siteType: "official_site", category: "presence",
+          checkpoint: "website", duplicateChoice: "link", existingWebId: existingId,
+          fields: [{ dest: "bp.duns", value: candFor(p2, "bp.duns").value,
+            resolution: "replace", confidence: "High" }]
+        }, {}).then(function (journal) {
+          eq(LS.list(st, "centauri").length, 1, "saving from a duplicate link creates no second copy");
+          eq(journal.webUpdatedId, existingId, "the transaction records which saved link was updated");
+          eq(st.bp.centauri.duns, "12-345-6789", "the selected value is saved from the existing link");
+          ok(LS.list(st, "centauri")[0].linkedFields.indexOf("bp.duns") >= 0,
+            "the existing link is connected to the newly saved field");
+          return TX.undo(st, {}).then(function () {
+            eq(JSON.stringify(st), beforeReuse, "undo restores the link and fields exactly after reuse");
+          });
+        }).then(function () { return p2; });
+      }).then(function () {
 
         // A genuinely different page on the same site, same title and content.
         return analyze("https://centauri-world.test/index.html",
