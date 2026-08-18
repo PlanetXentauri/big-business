@@ -1,0 +1,21 @@
+# Sanitized test fixture. Every name, number and address below is
+# invented for testing. The routing numbers begin with 99, a prefix
+# no Federal Reserve district uses, so they cannot match a real bank.
+# Phone numbers use the 555 placeholder exchange.
+
+DUN & BRADSTREET
+Business Credit File
+
+CENTAURI WORLD LLC
+D-U-N-S Number: 12-345-6789
+
+PAYDEX Score: 80
+Failure Score: 91
+
+EXPERIAN BUSINESS
+Intelliscore Plus: 76
+
+EQUIFAX BUSINESS
+Business Credit Risk Score: 540
+
+FICO SBSS: 220

@@ -1,0 +1,14 @@
+# Sanitized test fixture. Every name, number and address below is
+# invented for testing. The routing numbers begin with 99, a prefix
+# no Federal Reserve district uses, so they cannot match a real bank.
+# Phone numbers use the 555 placeholder exchange.
+
+JOINT OPERATING AGREEMENT
+
+This agreement is made between CENTAURI WORLD LLC, an Illinois limited
+liability company, and KEYPR ON COMPANY, an Illinois corporation.
+
+Centauri World LLC EIN: 88-1234567
+Keypr On Company EIN: 91-7654321
+
+Both parties agree to the terms and conditions set out below.

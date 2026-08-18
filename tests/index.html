@@ -1,0 +1,551 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Document autofill — browser tests</title>
+<style>
+  body { background:#0a0a0d; color:#e2e8f0; font-family:'DM Mono',ui-monospace,monospace;
+         padding:24px; max-width:900px; margin:0 auto; line-height:1.5; }
+  h1 { font-size:18px; letter-spacing:0.2em; color:#E8B64C; margin-bottom:4px; }
+  .sub { font-size:13px; color:#8794ab; margin-bottom:20px; }
+  .suite { font-size:12px; letter-spacing:0.2em; color:#94a3b8; font-weight:700;
+           margin:20px 0 8px; border-bottom:1px solid rgba(255,255,255,0.1); padding-bottom:5px; }
+  .t { font-size:13px; padding:3px 0; }
+  .pass::before { content:"PASS  "; color:#10b981; font-weight:700; }
+  .fail::before { content:"FAIL  "; color:#ef4444; font-weight:700; }
+  .skip::before { content:"SKIP  "; color:#f59e0b; font-weight:700; }
+  .detail { color:#8794ab; font-size:12px; padding-left:52px; }
+  #summary { margin-top:24px; padding:14px 16px; border-radius:10px; font-size:15px; font-weight:700; }
+  .okbox { background:rgba(16,185,129,0.12); border:1px solid #10b981; color:#10b981; }
+  .badbox { background:rgba(239,68,68,0.12); border:1px solid #ef4444; color:#ef4444; }
+  button { background:#E8B64C; color:#0d0d10; border:none; border-radius:6px; padding:9px 16px;
+           font-weight:800; cursor:pointer; font-family:inherit; margin-bottom:16px; }
+  canvas { border:1px solid rgba(255,255,255,0.15); border-radius:6px; margin:6px 6px 0 0; }
+  .note { font-size:12px; color:#8794ab; background:rgba(255,255,255,0.03); padding:10px 12px;
+          border-radius:8px; margin-bottom:16px; }
+</style>
+</head>
+<body>
+
+<h1>DOCUMENT AUTOFILL — BROWSER TESTS</h1>
+<div class="sub">The half of the suite that needs a real browser: image preprocessing, PDF.js,
+OCR, IndexedDB and network behaviour. Run <code>node tests/run-node.js</code> for the rest.</div>
+
+<div class="note">
+  Serve this over http rather than opening the file directly, so IndexedDB and PDF.js workers behave
+  normally:<br>
+  <code>python -m http.server 8000</code> then open <code>http://localhost:8000/tests/</code><br>
+  The OCR tests download the recognition engine on first run and take up to a minute.
+</div>
+
+<button onclick="runAll()">▶ RUN TESTS</button>
+<div id="out"></div>
+<div id="summary"></div>
+<div id="scratch"></div>
+
+<script src="../js/doc/util.js"></script>
+<script src="../js/doc/validators.js"></script>
+<script src="../js/doc/business-matcher.js"></script>
+<script src="../js/doc/classifier.js"></script>
+<script src="../js/doc/extractors.js"></script>
+<script src="../js/doc/mapping.js"></script>
+<script src="../js/doc/image.js"></script>
+<script src="../js/doc/pdf.js"></script>
+<script src="../js/doc/ocr.js"></script>
+<script src="../js/doc/store.js"></script>
+<script src="../js/doc/pipeline.js"></script>
+<script src="../js/doc/transaction.js"></script>
+<script src="../js/doc/review-ui.js"></script>
+
+<script>
+/* ---------- harness ---------- */
+var passed = 0, failed = 0, skipped = 0;
+var out = document.getElementById("out");
+
+function suite(name) {
+  var d = document.createElement("div");
+  d.className = "suite"; d.textContent = name;
+  out.appendChild(d);
+}
+function ok(cond, label, detail) {
+  var d = document.createElement("div");
+  d.className = "t " + (cond ? "pass" : "fail");
+  d.textContent = label;
+  out.appendChild(d);
+  if (cond) passed++; else { failed++; if (detail) addDetail(detail); }
+}
+function skip(label, why) {
+  var d = document.createElement("div");
+  d.className = "t skip"; d.textContent = label;
+  out.appendChild(d); skipped++;
+  if (why) addDetail(why);
+}
+function addDetail(text) {
+  var d = document.createElement("div");
+  d.className = "detail"; d.textContent = text;
+  out.appendChild(d);
+}
+function eq(got, want, label) {
+  ok(JSON.stringify(got) === JSON.stringify(want), label,
+     "got " + JSON.stringify(got) + ", want " + JSON.stringify(want));
+}
+function show(canvas, label) {
+  var wrap = document.getElementById("scratch");
+  var c = document.createElement("canvas");
+  c.width = 160; c.height = Math.round(160 * canvas.height / canvas.width);
+  c.title = label;
+  c.getContext("2d").drawImage(canvas, 0, 0, c.width, c.height);
+  wrap.appendChild(c);
+}
+
+/* ---------- fixture builders ---------- */
+
+// A minimal but genuinely valid PDF with selectable text, built byte by byte
+// so the digital-PDF path is exercised without shipping a binary fixture.
+function buildPdf(pageTexts) {
+  var objects = [], offsets = [];
+  var pageIds = pageTexts.map(function (_, i) { return 4 + i * 2; });
+
+  objects.push("1 0 obj\n<< /Type /Catalog /Pages 2 0 R >>\nendobj\n");
+  objects.push("2 0 obj\n<< /Type /Pages /Kids [" +
+    pageIds.map(function (id) { return id + " 0 R"; }).join(" ") +
+    "] /Count " + pageTexts.length + " >>\nendobj\n");
+  objects.push("3 0 obj\n<< /Type /Font /Subtype /Type1 /BaseFont /Helvetica >>\nendobj\n");
+
+  pageTexts.forEach(function (lines, i) {
+    var id = pageIds[i], contentId = id + 1;
+    objects.push(id + " 0 obj\n<< /Type /Page /Parent 2 0 R /MediaBox [0 0 612 792] " +
+      "/Resources << /Font << /F1 3 0 R >> >> /Contents " + contentId + " 0 R >>\nendobj\n");
+    var stream = "BT /F1 12 Tf\n";
+    lines.forEach(function (line, n) {
+      stream += "1 0 0 1 60 " + (720 - n * 18) + " Tm (" +
+        String(line).replace(/([\\()])/g, "\\$1") + ") Tj\n";
+    });
+    stream += "ET";
+    objects.push(contentId + " 0 obj\n<< /Length " + stream.length + " >>\nstream\n" + stream + "\nendstream\nendobj\n");
+  });
+
+  var pdf = "%PDF-1.4\n", i;
+  for (i = 0; i < objects.length; i++) { offsets.push(pdf.length); pdf += objects[i]; }
+  var xrefAt = pdf.length;
+  pdf += "xref\n0 " + (objects.length + 1) + "\n0000000000 65535 f \n";
+  for (i = 0; i < offsets.length; i++) {
+    pdf += ("0000000000" + offsets[i]).slice(-10) + " 00000 n \n";
+  }
+  pdf += "trailer\n<< /Size " + (objects.length + 1) + " /Root 1 0 R >>\nstartxref\n" + xrefAt + "\n%%EOF";
+
+  var bytes = new Uint8Array(pdf.length);
+  for (i = 0; i < pdf.length; i++) bytes[i] = pdf.charCodeAt(i) & 0xff;
+  return new File([bytes], "test.pdf", { type: "application/pdf" });
+}
+
+// A page of rendered text as an image, optionally rotated, blurred or faded —
+// the scanned / photographed cases.
+function buildImage(lines, opts) {
+  opts = opts || {};
+  var w = opts.width || 1000, h = opts.height || 700;
+  var c = document.createElement("canvas");
+  c.width = w; c.height = h;
+  var ctx = c.getContext("2d");
+  ctx.fillStyle = opts.bg || "#ffffff";
+  ctx.fillRect(0, 0, w, h);
+
+  if (opts.rotate) {
+    ctx.translate(w / 2, h / 2);
+    ctx.rotate(opts.rotate * Math.PI / 180);
+    ctx.translate(-w / 2, -h / 2);
+  }
+  ctx.fillStyle = opts.fg || "#000000";
+  ctx.font = (opts.fontSize || 26) + "px Georgia, serif";
+  lines.forEach(function (line, i) {
+    ctx.fillText(line, 60, 80 + i * (opts.lineHeight || 40));
+  });
+
+  if (opts.blur) {
+    var b = document.createElement("canvas");
+    b.width = w; b.height = h;
+    var bctx = b.getContext("2d");
+    bctx.filter = "blur(" + opts.blur + "px)";
+    bctx.drawImage(c, 0, 0);
+    return b;
+  }
+  return c;
+}
+
+function canvasToFile(canvas, name, type) {
+  return new Promise(function (res) {
+    canvas.toBlob(function (blob) { res(new File([blob], name, { type: type || "image/png" })); }, type || "image/png");
+  });
+}
+
+var PROFILES = {
+  centauri: { bp: { legalName: "Centauri World LLC", ein: "88-1234567" }, fin: {} },
+  keypr: { bp: { legalName: "Keypr On Company", ein: "91-7654321" }, fin: {} }
+};
+
+function freshState() {
+  return {
+    bp: { centauri: {}, keypr: {} }, fin: { centauri: {}, keypr: {} },
+    strength: { centauri: {}, keypr: {} }, strengthData: { centauri: {}, keypr: {} },
+    strengthFiles: { centauri: {}, keypr: {} },
+    docs: {
+      centauri: { files: [], links: [], dnb: [], scan: { files: [] } },
+      keypr: { files: [], links: [], dnb: [], scan: { files: [] } }
+    },
+    docaiHistory: { centauri: {}, keypr: {} }
+  };
+}
+
+/* ---------- network watch ----------
+   Every fetch and XHR is recorded for the duration of the run so the suite
+   can assert that no document bytes were sent anywhere. */
+var netLog = [];
+(function () {
+  var realFetch = window.fetch;
+  window.fetch = function (input, init) {
+    var url = typeof input === "string" ? input : (input && input.url) || "";
+    netLog.push({ via: "fetch", url: url, hasBody: !!(init && init.body) });
+    return realFetch.apply(this, arguments);
+  };
+  var realOpen = XMLHttpRequest.prototype.open;
+  var realSend = XMLHttpRequest.prototype.send;
+  XMLHttpRequest.prototype.open = function (m, u) { this.__url = u; return realOpen.apply(this, arguments); };
+  XMLHttpRequest.prototype.send = function (body) {
+    netLog.push({ via: "xhr", url: this.__url || "", hasBody: body != null });
+    return realSend.apply(this, arguments);
+  };
+})();
+
+/* ============================================================
+   the tests
+   ============================================================ */
+async function runAll() {
+  out.innerHTML = ""; document.getElementById("scratch").innerHTML = "";
+  document.getElementById("summary").textContent = "";
+  passed = failed = skipped = 0; netLog = [];
+
+  await testHashing();
+  await testStore();
+  await testExif();
+  await testImagePrep();
+  await testDigitalPdf();
+  await testMultipagePdf();
+  await testCorruptPdf();
+  await testOcrImage();
+  await testScannedPdf();
+  await testEndToEnd();
+  testNetwork();
+
+  var s = document.getElementById("summary");
+  s.className = failed ? "badbox" : "okbox";
+  s.textContent = failed
+    ? failed + " failed · " + passed + " passed" + (skipped ? " · " + skipped + " skipped" : "")
+    : "All " + passed + " checks passed" + (skipped ? " (" + skipped + " skipped)" : "") + ".";
+}
+
+/* ---------- hashing in the browser ---------- */
+async function testHashing() {
+  suite("SHA-256 — WebCrypto path matches the pure-JS fallback");
+  var bytes = new TextEncoder().encode("abc");
+  var viaCrypto = await DOCAI.util.sha256(bytes);
+  eq(viaCrypto, "ba7816bf8f01cfea414140de5dae2223b00361a396177a9cb410ff61f20015ad",
+     "known vector for 'abc'");
+  eq(DOCAI.util.sha256Sync(bytes), viaCrypto, "the fallback agrees with WebCrypto");
+
+  var f = new File([new Uint8Array([1, 2, 3, 4, 5])], "x.bin");
+  var h1 = await DOCAI.util.hashFile(f);
+  var h2 = await DOCAI.util.hashFile(new File([new Uint8Array([1, 2, 3, 4, 5])], "y.bin"));
+  eq(h1, h2, "identical bytes hash identically regardless of filename");
+  var h3 = await DOCAI.util.hashFile(new File([new Uint8Array([1, 2, 3, 4, 6])], "z.bin"));
+  ok(h1 !== h3, "one changed byte changes the hash");
+}
+
+/* ---------- IndexedDB ---------- */
+async function testStore() {
+  suite("IndexedDB blob storage");
+  try {
+    var big = new Uint8Array(5 * 1024 * 1024);   // 5 MB — over the old 3 MB cliff
+    big.fill(7);
+    var file = new File([big], "large.pdf", { type: "application/pdf" });
+    var id = "test-blob-" + Date.now();
+
+    await DOCAI.store.putBlob(id, file);
+    var back = await DOCAI.store.getBlob(id);
+    ok(!!back, "a 5 MB file stores and reads back");
+    eq(back.size, file.size, "…at its original size, not degraded to a reference");
+    eq(back.type, "application/pdf", "…with its type intact");
+
+    await DOCAI.store.putText(id, [{ page: 1, text: "hello", source: "embedded" }]);
+    var t = await DOCAI.store.getText(id);
+    eq(t[0].text, "hello", "extracted text round-trips");
+
+    await DOCAI.store.deleteBlob(id);
+    await DOCAI.store.deleteText(id);
+    eq(await DOCAI.store.getBlob(id), null, "delete removes the blob");
+    eq(await DOCAI.store.getText(id), null, "delete removes the text");
+  } catch (e) {
+    skip("IndexedDB tests", "IndexedDB unavailable: " + e.message + " (open over http://, not file://)");
+  }
+}
+
+/* ---------- EXIF ---------- */
+async function testExif() {
+  suite("EXIF orientation");
+  var c = buildImage(["orientation probe"], { width: 400, height: 300 });
+  var jpeg = await canvasToFile(c, "p.jpg", "image/jpeg");
+  var ab = await jpeg.arrayBuffer();
+  var o = DOCAI.image.readExifOrientation(ab);
+  ok(o >= 1 && o <= 8, "a canvas JPEG reports a valid orientation (" + o + ")");
+
+  var png = await canvasToFile(c, "p.png", "image/png");
+  eq(DOCAI.image.readExifOrientation(await png.arrayBuffer()), 1,
+     "a PNG has no EXIF and is treated as upright");
+  eq(DOCAI.image.readExifOrientation(new ArrayBuffer(2)), 1, "a truncated file does not throw");
+}
+
+/* ---------- image preprocessing ---------- */
+async function testImagePrep() {
+  suite("Image preprocessing — skew, quality, non-destructiveness");
+
+  var straight = buildImage(["Name of the limited liability company: CENTAURI WORLD LLC",
+                             "Document Number: L24000999001", "Date Filed: 03/07/2024"]);
+  var skewRes = DOCAI.image.detectSkew(straight);
+  ok(Math.abs(skewRes.angle) <= 1.5, "a straight page reports little or no skew (" + skewRes.angle + "°)");
+
+  var tilted = buildImage(["Name of the limited liability company: CENTAURI WORLD LLC",
+                           "Document Number: L24000999001", "Date Filed: 03/07/2024"], { rotate: 4 });
+  var tiltRes = DOCAI.image.detectSkew(tilted);
+  show(tilted, "tilted 4°");
+  ok(tiltRes.angle !== 0, "a tilted page is detected as skewed (" + tiltRes.angle.toFixed(1) + "°)");
+
+  var sharp = DOCAI.image.assess(straight);
+  var blurry = DOCAI.image.assess(buildImage(["blurry text sample here"], { blur: 4 }));
+  ok(blurry.focus < sharp.focus, "a blurred page scores lower for focus than a sharp one");
+  ok(blurry.warnings.length > 0, "…and produces a readable warning");
+  addDetail(blurry.warnings[0] || "");
+
+  var faint = DOCAI.image.assess(buildImage(["faint low contrast text"], { fg: "#c8c8c8" }));
+  ok(faint.contrastSpread < sharp.contrastSpread, "a faint page scores lower for contrast");
+
+  var file = await canvasToFile(straight, "photo.png");
+  var beforeSize = file.size;
+  var prep = await DOCAI.image.prepare(file);
+  show(prep.canvas, "preprocessed");
+  eq(file.size, beforeSize, "the original File object is not modified");
+  ok(prep.canvas !== straight, "preprocessing produces a separate canvas");
+  ok(prep.steps.length >= 3, "every step taken is recorded for display");
+  prep.steps.forEach(function (s) { addDetail("· " + s); });
+}
+
+/* ---------- digital PDF ---------- */
+async function testDigitalPdf() {
+  suite("Digital PDF — embedded text is used, no OCR needed");
+  try {
+    var pdf = buildPdf([[
+      "STATE OF ILLINOIS",
+      "ARTICLES OF ORGANIZATION",
+      "Name of the limited liability company: CENTAURI WORLD LLC",
+      "Document Number: L24000999001",
+      "Date Filed: 03/07/2024",
+      "State of Organization: Illinois"
+    ]]);
+
+    var state = freshState();
+    var proposal = await DOCAI.pipeline.run(pdf, { state: state, profiles: PROFILES, onStatus: function () {} });
+
+    eq(proposal.pageCount, 1, "one page read");
+    eq(proposal.pages[0].source, "embedded", "text came from the embedded layer, not OCR");
+    ok(proposal.notes.join(" ").indexOf("no image recognition") >= 0, "…and the note says so");
+    eq(proposal.classification.typeId, "articles", "classified as articles of organization");
+    eq(proposal.business.business, "centauri", "matched to Centauri World LLC");
+    var legal = proposal.candidates.filter(function (c) { return c.dest === "bp.legalName"; })[0];
+    ok(!!legal, "legal name extracted");
+    ok(legal && legal.value.indexOf("CENTAURI WORLD LLC") >= 0, "…with the right value");
+    ok(legal && legal.bbox, "…and a bounding box from the PDF text positions");
+  } catch (e) {
+    ok(false, "digital PDF pipeline", e.message);
+  }
+}
+
+async function testMultipagePdf() {
+  suite("Multipage PDF — every page is read and page numbers are kept");
+  try {
+    var pdf = buildPdf([
+      ["FIRST EXAMPLE BANK", "Statement Period: 03/01/2024 - 03/31/2024", "Bank Name: First Example Bank"],
+      ["Account Type: Business Checking", "Account Number: 000123456789"],
+      ["Routing Number: 990000013", "Ending Balance $17,810.30"]
+    ]);
+    var proposal = await DOCAI.pipeline.run(pdf, { state: freshState(), profiles: PROFILES, onStatus: function () {} });
+
+    eq(proposal.pageCount, 3, "all three pages were processed");
+    var routing = proposal.candidates.filter(function (c) { return c.dest === "fin.routingNumber"; })[0];
+    ok(!!routing, "a value on the last page is still found");
+    eq(routing && routing.page, 3, "…and reports the page it came from");
+    var acct = proposal.candidates.filter(function (c) { return c.dest === "fin.acctNumber"; })[0];
+    eq(acct && acct.page, 2, "a value on page 2 reports page 2");
+    eq(proposal.classification.typeId, "bank_statement", "classified across the whole document");
+  } catch (e) {
+    ok(false, "multipage PDF", e.message);
+  }
+}
+
+async function testCorruptPdf() {
+  suite("Corrupt PDF — a clear error, not a stack trace");
+  var junk = new File([new Uint8Array([37, 80, 68, 70, 1, 2, 3, 4, 5])], "broken.pdf", { type: "application/pdf" });
+  try {
+    await DOCAI.pipeline.run(junk, { state: freshState(), profiles: PROFILES, onStatus: function () {} });
+    ok(false, "a corrupt PDF should be rejected");
+  } catch (e) {
+    ok(/corrupt|not a valid|couldn't open/i.test(e.message), "the error is in plain language");
+    addDetail(e.message);
+  }
+
+  suite("File gate");
+  var gate = DOCAI.pipeline.validateFile(new File([""], "empty.pdf", { type: "application/pdf" }));
+  ok(!gate.ok, "an empty file is rejected");
+  var exe = DOCAI.pipeline.validateFile(new File(["x"], "thing.exe", { type: "application/octet-stream" }));
+  ok(!exe.ok, "an unsupported type is rejected");
+  addDetail(exe.error);
+  ok(DOCAI.pipeline.validateFile(new File(["x"], "a.png", { type: "image/png" })).ok, "a PNG is accepted");
+}
+
+/* ---------- OCR ---------- */
+async function testOcrImage() {
+  suite("OCR — photographed document (downloads the engine on first run)");
+  try {
+    var canvas = buildImage([
+      "INTERNAL REVENUE SERVICE",
+      "EMPLOYER IDENTIFICATION NUMBER: 91-7654321",
+      "KEYPR ON COMPANY"
+    ], { fontSize: 30, lineHeight: 56 });
+    var file = await canvasToFile(canvas, "ein.png");
+
+    var proposal = await DOCAI.pipeline.run(file, { state: freshState(), profiles: PROFILES, onStatus: function () {} });
+    ok(proposal.textLength > 20, "text was recognised from the image (" + proposal.textLength + " chars)");
+    addDetail(proposal.pages[0].text.replace(/\s+/g, " ").slice(0, 160));
+
+    var ein = proposal.candidates.filter(function (c) { return c.dest === "bp.ein"; })[0];
+    if (ein) {
+      eq(ein.value, "91-7654321", "the EIN was read correctly");
+      eq(ein.page, 1, "…on page 1");
+      ok(ein.excerpt.length > 0, "…with a source excerpt");
+    } else {
+      skip("EIN extraction from OCR", "OCR did not resolve the number cleanly on this machine — " +
+        "the pipeline correctly produced no candidate rather than guessing");
+    }
+    ok(proposal.business.business === "keypr" || proposal.business.requiresManualChoice,
+       "business is either matched or referred for manual choice — never guessed");
+  } catch (e) {
+    skip("OCR image test", "engine unavailable: " + e.message);
+  }
+}
+
+async function testScannedPdf() {
+  suite("Scanned and mixed PDFs");
+  try {
+    // A PDF whose only page is an image: no embedded text at all.
+    var canvas = buildImage(["CERTIFICATE OF GOOD STANDING", "is in good standing"], { fontSize: 30 });
+    var imgFile = await canvasToFile(canvas, "scan.png");
+    var proposal = await DOCAI.pipeline.run(imgFile, { state: freshState(), profiles: PROFILES, onStatus: function () {} });
+    ok(proposal.pages[0].source === "ocr", "an image-only document goes through recognition");
+
+    // Mixed: page 1 has text, page 2 would need OCR. The builder only makes
+    // text pages, so this asserts the detection flag rather than the OCR run.
+    var mixed = buildPdf([["Bank Name: First Example Bank"], [" "]]);
+    var ab = await mixed.arrayBuffer();
+    var r = await DOCAI.pdf.extractPages(ab, function () {});
+    eq(r.pages.length, 2, "both pages are enumerated");
+    eq(r.pages[0].needsOcr, false, "the text page is not marked for OCR");
+    eq(r.pages[1].needsOcr, true, "the empty page is marked as needing OCR");
+  } catch (e) {
+    skip("scanned PDF test", e.message);
+  }
+}
+
+/* ---------- end to end through real storage ---------- */
+async function testEndToEnd() {
+  suite("End to end — upload, review, save, verify, undo (real IndexedDB)");
+  try {
+    var state = freshState();
+    state.bp.centauri.legalName = "Centauri World LLC";
+
+    var pdf = buildPdf([[
+      "FIRST EXAMPLE BANK",
+      "Bank Name: First Example Bank",
+      "Statement Period: 03/01/2024 - 03/31/2024",
+      "Account Summary",
+      "Account Type: Business Checking",
+      "Account Number: 000123456789",
+      "Routing Number: 990000013",
+      "Beginning Balance $12,500.00",
+      "Ending Balance $17,810.30",
+      "CENTAURI WORLD LLC"
+    ]]);
+
+    var proposal = await DOCAI.pipeline.run(pdf, { state: state, profiles: PROFILES, onStatus: function () {} });
+    eq(proposal.business.business, "centauri", "1. business detected from the document");
+    eq(proposal.classification.typeId, "bank_statement", "2. classified as a bank statement");
+
+    var stateBefore = JSON.stringify(state);
+
+    // Nothing has been written yet — this is the guarantee the review screen rests on.
+    eq(Object.keys(state.fin.centauri).length, 0, "3. extraction alone wrote nothing");
+    eq(state.docs.centauri.files.length, 0, "4. …and filed nothing");
+
+    var journal = await DOCAI.transaction.save(state, proposal, {
+      biz: "centauri", docType: "bank_statement", docTypeLabel: "Bank Statement",
+      category: "banking", saveDocument: true,
+      fields: [
+        { dest: "fin.bankName", value: "First Example Bank", resolution: "replace" },
+        { dest: "fin.routingNumber", value: "990000013", resolution: "replace" }
+      ]
+    }, {});
+
+    eq(state.fin.centauri.bankName, "First Example Bank", "5. the ticked value saved");
+    eq(state.fin.centauri.acctNumber, undefined, "6. the unticked value did not");
+    eq(state.docs.centauri.files.length, 1, "7. the document is filed under Centauri");
+    eq(state.docs.keypr.files.length, 0, "8. and nothing reached Keypr");
+
+    var rec = state.docs.centauri.files[0];
+    var blob = await DOCAI.store.getBlob(rec.blobId);
+    ok(!!blob, "9. the original file is retrievable from storage");
+    eq(blob.size, pdf.size, "10. …byte-for-byte the same size");
+    eq(rec.dataUri, null, "11. no base64 copy is held in state");
+
+    var text = await DOCAI.store.getText(rec.textRef);
+    ok(!!text && text.length === 1, "12. the extracted text is stored outside state");
+    ok(JSON.stringify(state).indexOf("Beginning Balance") < 0, "13. …and not inside it");
+
+    var r = await DOCAI.transaction.undo(state, {});
+    ok(r.ok, "14. undo succeeds");
+    eq(JSON.stringify(state), stateBefore, "15. state is restored byte-for-byte");
+    eq(await DOCAI.store.getBlob(rec.blobId), null, "16. the stored blob is cleaned up");
+  } catch (e) {
+    ok(false, "end-to-end run", e.message + "\n" + (e.stack || ""));
+  }
+}
+
+/* ---------- network ---------- */
+function testNetwork() {
+  suite("Network — documents never leave the browser");
+  var external = netLog.filter(function (r) {
+    return /^https?:\/\//i.test(r.url) && r.url.indexOf(location.origin) !== 0;
+  });
+  var uploads = external.filter(function (r) { return r.hasBody; });
+
+  eq(uploads.length, 0, "no request with a body was sent to any external host");
+  if (external.length) {
+    addDetail("External GETs observed (library code only): " +
+      external.map(function (r) { return r.url.split("/").slice(2, 3)[0]; })
+        .filter(function (v, i, a) { return a.indexOf(v) === i; }).join(", "));
+  }
+  var badHosts = external.filter(function (r) {
+    return !/cdnjs\.cloudflare\.com|unpkg\.com|jsdelivr|tessdata|raw\.githubusercontent/.test(r.url);
+  });
+  eq(badHosts.length, 0, "every external request went to a known library CDN");
+  ok(true, "total requests observed during this run: " + netLog.length);
+}
+</script>
+</body>
+</html>

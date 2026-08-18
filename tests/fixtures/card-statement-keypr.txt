@@ -1,0 +1,19 @@
+# Sanitized test fixture. Every name, number and address below is
+# invented for testing. The routing numbers begin with 99, a prefix
+# no Federal Reserve district uses, so they cannot match a real bank.
+# Phone numbers use the 555 placeholder exchange.
+
+EXAMPLE BANK BUSINESS CARD
+Credit Card Statement
+
+KEYPR ON COMPANY
+
+Statement Period: 04/01/2024 - 04/30/2024
+Payment Due Date: 05/22/2024
+New Balance $1,204.55
+Minimum Payment Due $35.00
+Credit Limit $15,000.00
+Available Credit $13,795.45
+Purchase APR: 21.24%
+
+Visa ending in 4321

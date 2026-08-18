@@ -134,6 +134,21 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 #bgCorner { position: fixed; right: 14px; bottom: 12px; z-index: 50; display: flex; gap: 6px; opacity: 0.4; transition: opacity .2s; }
 #bgCorner:hover { opacity: 1; }
 </style>
+<!-- Precise document autofill engine. Plain classic scripts: no build step,
+     no modules, so this works from GitHub Pages and from file:// alike. -->
+<script src="js/doc/util.js"></script>
+<script src="js/doc/validators.js"></script>
+<script src="js/doc/business-matcher.js"></script>
+<script src="js/doc/classifier.js"></script>
+<script src="js/doc/extractors.js"></script>
+<script src="js/doc/mapping.js"></script>
+<script src="js/doc/image.js"></script>
+<script src="js/doc/pdf.js"></script>
+<script src="js/doc/ocr.js"></script>
+<script src="js/doc/store.js"></script>
+<script src="js/doc/pipeline.js"></script>
+<script src="js/doc/transaction.js"></script>
+<script src="js/doc/review-ui.js"></script>
 </head>
 <body>
 
@@ -358,6 +373,8 @@ function migrate() { // add keys introduced after first release
     _state.catalogMeta[b] ||= { lastSync: null, source: "", srcUrl: "" };
     _state.docs[b] ||= { files: [], links: [], dnb: defaultDnb(), scan: { files: [], lastScan: null, folderName: "" } };
     _state.bp[b] ||= {};
+    _state.docaiHistory ||= {};
+    _state.docaiHistory[b] ||= {};
     const old = _state.profiles && _state.profiles[b];
     if (old) { // carry legacy profile values into the structured profile
       const m = _state.bp[b];
@@ -524,8 +541,12 @@ function renderSubTabs() {
     style="${ui.renameMode?'border-color:var(--green);color:var(--green);background:rgba(16,185,129,0.12);':''}"
     onclick="ui.renameMode=!ui.renameMode;render()">${ui.renameMode?'✅ DONE':'✎'}</button>`;
 }
-function setBiz(id){ _state.activeBiz = id; _state.activeTab = "strength"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
-function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; commit(); }
+function setBiz(id){ _state.activeBiz = id; _state.activeTab = "strength"; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; ui.afReview=false;
+  if (window.DOCAI && DOCAI.reviewUI) DOCAI.reviewUI.close();
+  commit(); }
+function setTab(id){ _state.activeTab = id; ui.showForm = {}; ui.showNewProject=false; ui.addStepFor=null; ui.editGroup=null; ui.afResults=null; ui.afStatus=null; ui.afReview=false;
+  if (window.DOCAI && DOCAI.reviewUI) DOCAI.reviewUI.close();
+  commit(); }
 
 // ========== PROJECTS ==========
 function projStats(biz) {
@@ -843,6 +864,7 @@ function rFinancials(biz) {
   </div>
   <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">Feed it a bank statement, card statement, or credit report — it reads locally in your browser and you review before anything saves. 🔒 Stays on this device.</div>`;
   if (ui.afStatus && _state.activeTab==="financials") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += docaiUndoBarHTML();
   html += afPanelHTML(biz, "fin");
   for (const [gid, title, fields] of FIN_GROUPS) {
     const filled = fields.filter(([k])=>fin[k]).length;
@@ -1124,167 +1146,15 @@ const BP_GROUPS = [
     ["notes","Notes",[]],
   ]],
 ];
-const BP_RX = {
-  ein: [/\b\d{2}-\d{7}\b/, /ein|employer identification|federal tax|tax id/i],
-  duns: [/\b\d{2}-?\d{3}-?\d{4}\b/, /d.?u.?n.?s|d&b/i],
-  ownerSsn: [/\b\d{3}-\d{2}-\d{4}\b/, /ssn|social security|itin/i],
-  phone: [/(\+?1[ .\-]?)?\(?\d{3}\)?[ .\-]?\d{3}[ .\-]?\d{4}/, /phone|tel|call|contact/i],
-  email: [/[\w.+\-]+@[\w\-]+\.[\w.]{2,}/, null],
-  website: [/(?:https?:\/\/)?(?:www\.)?[\w\-]+\.(?:com|net|org|io|co|us|shop|store)\b[^\s,;]*/i, /website|domain|url|www|http/i],
-  naics: [/\b\d{4,6}\b/, /naics|sic/i],
-  formationDate: [/\b(?:\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}|(?:jan|feb|mar|apr|may|jun|jul|aug|sep|oct|nov|dec)[a-z]* \d{1,2},? \d{4})\b/i, /formation|formed|filed|effective|organiz|incorporat/i],
-  ownerDob: [/\b\d{1,2}[\/\-]\d{1,2}[\/\-]\d{2,4}\b/, /birth|dob|born/i],
-  amazonId: [/\bA[0-9A-Z]{12,13}\b/, /amazon|merchant|seller/i],
-  gs1Prefix: [/\b0\d{5,9}\b/, /gs1|prefix|upc/i],
-  trademarks: [/\b\d{7}\b/, /trademark|uspto|registration no|reg\. no|serial/i],
-  salesTaxPermit: [/\b(?=[A-Z0-9\-]*\d{4})[A-Z0-9\-]{6,15}\b/, /resale|sales tax|seller'?s permit/i],
-};
-// extra label aliases the parser also recognizes (beyond each field's built-in keywords)
-const BP_KW_EXTRA = {
-  legalName: ["company name","corporation name","name of llc","llc name","name of business","registered name","business legal name","name of the company","limited liability company name"],
-  dba: ["also known as","a/k/a","aka"],
-  entityType: ["business type","organization type","business structure","type of business"],
-  stateFormation: ["organized under the laws of","state of incorporation","formed under","domicile state","incorporated in"],
-  stateRegNum: ["document no","doc number","entity number","charter number","control number","sos number","state id number","filing no"],
-  formationDate: ["filed on","incorporation date","date organized","date incorporated","registered on","date of organization"],
-  ein: ["ein number","tax id number","taxpayer identification","federal ein","fed tax id","irs number"],
-  duns: ["duns number","d&b number","dnb number"],
-  naics: ["naics code","industry code","sic number"],
-  agentName: ["name of registered agent","statutory agent"],
-  agentAddress: ["address of the registered agent","address of registered agent","statutory agent address"],
-  principalAddr: ["principal office address","main business address","street address of principal","address of principal office","principal office"],
-  mailingAddr: ["mail address","p.o. box","po box"],
-  warehouseAddr: ["fulfillment address","shipping address"],
-  phone: ["contact number","phone no","business tel","daytime phone","mobile number","cell phone"],
-  email: ["contact email","business e-mail"],
-  website: ["homepage","web address","site url"],
-  custService: ["customer support","cs email","cs phone"],
-  owners: ["authorized person","manager name","managing members","member/manager","officers and directors","authorized representative","principal name"],
-  ownershipPct: ["% ownership","percentage of ownership","equity share","% owned"],
-  ownerSsn: ["ssn/itin","social security no"],
-  ownerDob: ["birthdate"],
-  ownerHomeAddr: ["owner address","personal address"],
-  bankName: ["financial institution","name of bank","depository"],
-  acctRouting: ["acct number","checking account","account no","routing no","aba routing"],
-  creditCards: ["card ending in","credit line"],
-  processors: ["merchant account","payment gateway"],
-  annualRevenue: ["gross revenue","projected revenue","estimated annual","annual gross sales"],
-  creditBureaus: ["paydex score","business credit score","experian business"],
-  salesTaxPermit: ["resale number","tax permit number","certificate of registration","seller permit"],
-  annualReportDue: ["report due date","next annual report"],
-  licenses: ["license no","permit no","local business tax"],
-  insurance: ["insurer","policy no","coverage amount","certificate of insurance"],
-  amazonId: ["merchant id","merchant token","amazon account id"],
-  walmartId: ["walmart account","supplier id","seller center id"],
-  gs1Prefix: ["company prefix","upc company prefix"],
-  trademarks: ["uspto reg","registration number","serial number"],
-  brandRegistry: ["registry status","brand registered"],
-  domainRegistrar: ["domain registered with","registrar name","domain expires"],
-  hostingProvider: ["hosted on","hosting company","server provider"],
-  loginsLocation: ["credentials stored","passwords stored","vault"],
-};
-const BP_STATES = "alabama|alaska|arizona|arkansas|california|colorado|connecticut|delaware|florida|georgia|hawaii|idaho|illinois|indiana|iowa|kansas|kentucky|louisiana|maine|maryland|massachusetts|michigan|minnesota|mississippi|missouri|montana|nebraska|nevada|new hampshire|new jersey|new mexico|new york|north carolina|north dakota|ohio|oklahoma|oregon|pennsylvania|rhode island|south carolina|south dakota|tennessee|texas|utah|vermont|virginia|washington|west virginia|wisconsin|wyoming";
-const BP_CITYZIP = /[A-Za-z .'\-]+,?\s+[A-Z]{2},?\s+\d{5}(?:-\d{4})?/;
-const BP_STREET = /\d{1,6}\s+[\w.#' ]{3,40}\b(?:street|st|avenue|ave|boulevard|blvd|drive|dr|road|rd|lane|ln|court|ct|way|terrace|ter|circle|cir|place|pl|parkway|pkwy|highway|hwy)\b/i;
-function bpAllFields(){ return BP_GROUPS.flatMap(([g,t,fs])=>fs.map(([k,label,kws])=>({k,label,kws:(kws||[]).concat(BP_KW_EXTRA[k]||[])}))); }
-function parseAutofill(text){
-  const lines = text.split(/\r?\n/).map(l=>l.replace(/[|•·]+/g," ").replace(/_{3,}/g," ").replace(/\s+/g," ").trim()).filter(l=>l.length>1);
-  const fields = bpAllFields();
-  const best = {};
-  const isAddr = k=>/Addr$/.test(k)||k==="agentAddress";
-  const clean = v=>(v||"").replace(/^[\s:#.,\-–—]+/,"").replace(/[\s;,]+$/,"").trim();
-  const strip = v=>{
-    v = clean(v);
-    v = v.replace(/^(number|no\.?|num|#)[:. ]+/i,"").replace(/^(is|are|shall be)\b[: ]*/i,"");
-    v = v.replace(/^[\s:#.,\-–—]+/,"").trim();
-    if (/^(is|are|the|of|and|as follows)[.:]?$/i.test(v)) return "";
-    return v;
-  };
-  const put = (k,v,score)=>{ v=strip(v); if(v.length<2) return; if(!best[k]||score>best[k].score) best[k]={v:v.slice(0,220),score}; };
-  const grabAddr = (k,startVal,idx,score)=>{
-    let v = strip(startVal);
-    if (v && !/\d/.test(v)) v = ""; // label remnants like "of the company is:" aren't addresses
-    if (v && !BP_CITYZIP.test(v) && lines[idx+1] && BP_CITYZIP.test(lines[idx+1])) v += ", "+lines[idx+1];
-    if (!v){
-      for (let j=idx+1; j<=idx+3 && j<lines.length; j++){
-        if (BP_STREET.test(lines[j]) || BP_CITYZIP.test(lines[j])){
-          v = lines[j];
-          if (lines[j+1] && BP_CITYZIP.test(lines[j+1]) && !BP_CITYZIP.test(v)) v += ", "+lines[j+1];
-          break;
-        }
-      }
-    }
-    put(k, v, score);
-  };
-  // PASS 1 — keyword / label scan (value inline after label, or on the next line)
-  for (let i=0; i<lines.length; i++){
-    const low = lines[i].toLowerCase();
-    for (const f of fields){
-      for (const kw of f.kws){
-        const at = low.indexOf(kw);
-        if (at < 0) continue;
-        if (at > 0 && /[a-z0-9]/.test(low[at-1])) continue; // keyword must start at a word boundary
-        const rest = strip(lines[i].slice(at+kw.length));
-        if (isAddr(f.k)) { grabAddr(f.k, rest, i, 3); break; }
-        if (rest.length >= 2) put(f.k, rest, 3);
-        else if (lines[i+1] && lines[i+1].length <= 120 && !/[:：]\s*$/.test(lines[i+1])) put(f.k, lines[i+1], 2);
-        break;
-      }
-    }
-  }
-  // PASS 2 — pattern scan with context checked in a ±1 line window
-  for (const [k, pair] of Object.entries(BP_RX)){
-    if (best[k] && best[k].score >= 2) continue;
-    const rx = pair[0], ctx = pair[1];
-    for (let i=0; i<lines.length; i++){
-      const win = (lines[i-1]||"")+" "+lines[i]+" "+(lines[i+1]||"");
-      if (ctx && !ctx.test(win)) continue;
-      const m = lines[i].match(rx);
-      if (m){ put(k, m[0], 1); break; }
-    }
-  }
-  // PASS 3 — smart derivations for things documents rarely label
-  if (!best.legalName){
-    const m = lines.find(l=>l.length<70 && /^[A-Z0-9][\w .,&'()\-]{2,60}\b(LLC|L\.L\.C\.?|INC\.?|CORP\.?|CORPORATION|COMPANY|CO\.)\s*$/i.test(l));
-    if (m) put("legalName", m, 1);
-  }
-  if (!best.entityType){
-    const t = text.toLowerCase();
-    if (/limited liability company|\bl\.?l\.?c\b/.test(t)) put("entityType","LLC",1);
-    else if (/\bcorporation\b|\bincorporated\b|\binc\b/.test(t)) put("entityType","Corporation",1);
-    else if (/sole proprietor/.test(t)) put("entityType","Sole Proprietorship",1);
-    else if (/\bpartnership\b/.test(t)) put("entityType","Partnership",1);
-  }
-  if (!best.stateFormation){
-    let m = text.match(new RegExp("(?:state of|laws of(?: the state of)?|organized in|formed in|incorporated in)\\s+("+BP_STATES+")","i"));
-    if (!m) m = text.match(new RegExp("\\b("+BP_STATES+")\\b(?=\\s+(?:limited liability|llc|corporation|inc\\b|profit corporation))","i"));
-    if (m) put("stateFormation", m[1].replace(/\b\w/g,c=>c.toUpperCase()), 1);
-  }
-  if (!best.ein){
-    const m = text.match(/\b(\d{2})\s*[- ]\s*(\d{7})\b/);
-    if (m && /ein|tax|employer/i.test(text)) put("ein", m[1]+"-"+m[2], 1);
-  }
-  if (!best.stateRegNum){
-    const m = text.match(/\b[A-Z]\d{11,}\b|\b[A-Z]{1,3}\d{8,12}\b/);
-    if (m && /document|filing|filed|registration|articles|entity|charter/i.test(text)) put("stateRegNum", m[0], 1);
-  }
-  { // pair routing + account when both appear (beats single-value keyword grabs)
-    const r = text.match(/routing[^\d]{0,14}(\d{9})\b/i), a = text.match(/account[^\d]{0,14}(\d{6,17})\b/i);
-    if (r || a) put("acctRouting", [r&&("Routing "+r[1]), a&&("Account "+a[1])].filter(Boolean).join(" · "), 4);
-  }
-  if (!best.principalAddr){
-    const idx = lines.findIndex(l=>BP_STREET.test(l));
-    if (idx>=0){
-      let v = lines[idx];
-      if (lines[idx+1] && BP_CITYZIP.test(lines[idx+1]) && !BP_CITYZIP.test(v)) v += ", "+lines[idx+1];
-      put("principalAddr", v, 0.5);
-    }
-  }
-  // ordered results
-  const found = [];
-  for (const f of fields){ if (best[f.k]) found.push({ k:f.k, label:f.label, value:best[f.k].v }); }
-  return found;
-}
+// The keyword tables, address regexes and BP_RX patterns that used to live
+// here fed the old single-pass parser. Their replacements are field
+// specifications in js/doc/extractors.js, which carry evidence and
+// validation with every value. BP_GROUPS above is still the profile form.
+// ========== DOCUMENT AUTOFILL (precise, evidence-based) ==========
+// The whole pipeline lives in js/doc/*.js. This section is only the bridge
+// between the dashboard and those modules: it picks files, runs the pipeline,
+// and hands the result to the review screen. Nothing here writes to state —
+// only DOCAI.transaction does that, and only from an explicit Save.
 function loadScript(src){
   return new Promise((res,rej)=>{
     if (document.querySelector(`script[src="${src}"]`)) return res();
@@ -1293,70 +1163,57 @@ function loadScript(src){
     document.head.appendChild(s);
   });
 }
-const TESS_URL = "https://cdnjs.cloudflare.com/ajax/libs/tesseract.js/5.1.1/tesseract.min.js";
-const PDFJS_URL = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.min.js";
-const PDFJS_WORKER = "https://cdnjs.cloudflare.com/ajax/libs/pdf.js/3.11.174/pdf.worker.min.js";
 function pickAutofill(biz, which, mode){ const i=document.getElementById(which||"afImg"); i.dataset.biz=biz; i.dataset.mode=mode||"bp"; i.click(); }
-function saveAutofillFile(file, biz){
-  const ext = (file.name && file.name.includes(".")) ? file.name.split(".").pop().toLowerCase()
-    : (file.type==="application/pdf" ? "pdf" : (file.type.split("/")[1]||"png"));
-  const d = new Date(), p = n=>String(n).padStart(2,"0");
-  const stamp = d.getFullYear()+"-"+p(d.getMonth()+1)+"-"+p(d.getDate())+"-"+p(d.getHours())+p(d.getMinutes())+p(d.getSeconds());
-  const entry = { id:uid("doc"), name:"autofill-"+stamp+"."+ext, type:file.type||"", size:file.size,
-    ts:Date.now(), dataUri:null, ref:false, af:true };
-  if (file.size > 3*1048576){ entry.ref = true; _state.docs[biz].files.unshift(entry); try{save();}catch(e){} return; }
-  const r = new FileReader();
-  r.onload = ()=>{ entry.dataUri = r.result; _state.docs[biz].files.unshift(entry);
-    try{ save(); }catch(e){ entry.dataUri=null; entry.ref=true; try{save();}catch(e2){} } };
-  r.readAsDataURL(file);
+
+// The context the review screen needs to read existing values, repaint, and
+// commit. `activeBiz` is passed for the "this belongs to the other business"
+// warning only — it never influences which business is detected.
+function docaiCtx(){
+  return {
+    state: _state,
+    activeBiz: _state.activeBiz,
+    commit: () => { save(); },
+    render: () => render(),
+    onSaved: (msg) => { ui.afStatus = msg; render(); },
+    onCancelled: (msg) => { ui.afStatus = msg; render(); }
+  };
 }
+
+// Profile snapshots handed to the business matcher — the values already on
+// file are what a document is matched against.
+function docaiProfiles(){
+  return {
+    centauri: { bp: _state.bp.centauri || {}, fin: _state.fin.centauri || {} },
+    keypr:    { bp: _state.bp.keypr    || {}, fin: _state.fin.keypr    || {} }
+  };
+}
+
 async function runAutofill(file, biz, mode){
-  mode = mode || "bp";
-  try {
-    ui.afResults = null;
-    saveAutofillFile(file, biz); // every autofill upload is auto-named + kept in Business Documents
-    let text = "";
-    if (file.type === "application/pdf" || /\.pdf$/i.test(file.name)){
-      ui.afStatus = "Extracting text from PDF…"; render();
-      await loadScript(PDFJS_URL);
-      pdfjsLib.GlobalWorkerOptions.workerSrc = PDFJS_WORKER;
-      const pdf = await pdfjsLib.getDocument({ data: await file.arrayBuffer() }).promise;
-      const n = Math.min(pdf.numPages, 8);
-      for (let p=1; p<=n; p++){
-        const tc = await (await pdf.getPage(p)).getTextContent();
-        text += tc.items.map(i=>i.str).join("\n") + "\n";
-      }
-      if (text.trim().length < 40){
-        ui.afStatus = "That PDF is a scan with no selectable text — screenshot it and autofill from the image instead."; render(); return;
-      }
-    } else if (/\.(md|txt|csv|json|text)$/i.test(file.name||"") || (file.type && file.type.startsWith("text/"))){
-      ui.afStatus = "Reading text file…"; render();
-      text = await file.text();
-    } else {
-      ui.afStatus = "Reading the image with OCR — takes 10–30 seconds, runs entirely in your browser…"; render();
-      await loadScript(TESS_URL);
-      const res = await Tesseract.recognize(file, "eng");
-      text = res.data.text || "";
-    }
-    const items = (mode==="fin" ? parseFin(text) : parseAutofill(text));
-    if (!items.length){ ui.afStatus = "Couldn't confidently match any fields — try a clearer screenshot or a text PDF."; render(); return; }
-    ui.afStatus = null;
-    ui.afResults = { biz, items, mode };
-    render();
-  } catch(e){ ui.afStatus = "Autofill failed: " + e.message; render(); }
-}
-function applyAutofill(){
-  const { biz, items, mode } = ui.afResults;
-  const store = (mode==="fin") ? _state.fin[biz] : _state.bp[biz];
-  let n = 0;
-  items.forEach((it,i)=>{
-    if (!document.getElementById("af-c-"+i).checked) return;
-    const v = document.getElementById("af-v-"+i).value.trim();
-    if (v){ store[it.k] = v; n++; }
-  });
+  if (!window.DOCAI || !DOCAI.pipeline){
+    ui.afStatus = "The document engine didn't load — check that the js/doc folder is present.";
+    render(); return;
+  }
+  DOCAI.reviewUI.close();
   ui.afResults = null;
-  ui.afStatus = "✓ Filled " + n + " field(s).";
-  commit();
+  try {
+    const proposal = await DOCAI.pipeline.run(file, {
+      state: _state,
+      profiles: docaiProfiles(),
+      onStatus: (msg) => { ui.afStatus = msg; render(); }
+    });
+    ui.afStatus = null;
+    DOCAI.reviewUI.lastCtx = docaiCtx();
+    DOCAI.reviewUI.open(proposal, DOCAI.reviewUI.lastCtx);
+    ui.afReview = true;
+    // Only Strength and Financials render the review panel. If the import was
+    // started from anywhere else, move to Strength — an active review that is
+    // invisible is worse than a tab change.
+    if (_state.activeTab !== "strength" && _state.activeTab !== "financials") _state.activeTab = "strength";
+    render();
+  } catch(e){
+    ui.afStatus = "Couldn't read that file: " + e.message;
+    render();
+  }
 }
 // ===== PROFILE STRENGTH =====
 // every category that makes a business profile strong = one step toward 100%
@@ -1435,6 +1292,10 @@ function addStrengthFiles(fileList, biz, k){
 }
 function openStrengthFile(biz,k,id){
   const f=(_state.strengthFiles[biz][k]||[]).find(x=>x.id===id); if(!f) return;
+  if (f.blobId && window.DOCAI){
+    DOCAI.store.getBlob(f.blobId).then(b=>{ if(b) window.open(DOCAI.util.objectUrl(b),"_blank"); });
+    return;
+  }
   if(!f.dataUri){ alert('"'+f.name+'" was too big to store — reference only.'); return; }
   fetch(f.dataUri).then(r=>r.blob()).then(b=>window.open(URL.createObjectURL(new Blob([b],{type:f.type||b.type})),"_blank"));
 }
@@ -1476,6 +1337,7 @@ function rStrength(biz){
   </div>
   <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">Autofill feeds your Profile & Banking fields — AUTO items below flip to done the moment their field is filled. Click any circle to override: ✓ done → ⏳ waiting → upcoming → back to AUTO.</div>`;
   if (ui.afStatus && _state.activeTab==="strength") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += docaiUndoBarHTML();
   html += afPanelHTML(biz, "bp");
   html += `<div class="col" style="gap:8px;margin-bottom:14px">` + rows.map((r,i)=>{
     const sc = STEP_COLORS[r.st] || STEP_COLORS.upcoming;
@@ -1522,19 +1384,21 @@ function rStrength(biz){
   html += rDocs(biz);
   return html;
 }
+function docaiUndoBarHTML(){
+  if (!window.DOCAI || !DOCAI.transaction.canUndo()) return "";
+  return `<div class="row" style="margin-bottom:10px">
+    <button class="btn btn-ghost" style="flex:1;font-size:11px" onclick="docaiUndo()">↩ UNDO LAST IMPORT — ${esc(DOCAI.transaction.describeLast())}</button>
+  </div>`;
+}
+function docaiUndo(){
+  DOCAI.transaction.undo(_state, { commit: ()=>save() }).then(r=>{ ui.afStatus = r.message; render(); });
+}
 function afPanelHTML(biz, mode){
-  if (!ui.afResults || ui.afResults.biz!==biz || (ui.afResults.mode||"bp")!==mode) return "";
-  const store = (mode==="fin") ? _state.fin[biz] : _state.bp[biz];
-  return `<div class="form-panel">
-    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">REVIEW AUTOFILL — ${ui.afResults.items.length} MATCH(ES). UNCHECK ANYTHING WRONG.</div>` +
-    ui.afResults.items.map((it,i)=>`
-    <div style="display:flex;gap:8px;align-items:center">
-      <input type="checkbox" id="af-c-${i}" ${store[it.k]?"":"checked"} style="width:auto;flex-shrink:0">
-      <div style="width:170px;flex-shrink:0;font-size:12px;color:var(--muted)">${it.label}${store[it.k]?` <span style="color:var(--amber)">(overwrites)</span>`:""}</div>
-      <input id="af-v-${i}" value="${esc(it.value)}" style="flex:1">
-    </div>`).join("") + `
-    <div class="row"><button class="btn btn-red" style="flex:1" onclick="applyAutofill()">✅ APPLY CHECKED</button>
-    <button class="btn btn-ghost" onclick="ui.afResults=null;render()">DISMISS</button></div></div>`;
+  // The review screen is business-agnostic: the pipeline decides which
+  // business a document belongs to, so the panel shows wherever it was
+  // started from rather than only under the business that happens to match.
+  if (!ui.afReview || !window.DOCAI || !DOCAI.reviewUI.session) return "";
+  return DOCAI.reviewUI.html();
 }
 // ===== BANKING & CREDIT (Financials tab) =====
 const FIN_GROUPS = [
@@ -1564,67 +1428,8 @@ const FIN_GROUPS = [
     ["creditNotes","Credit building notes"],
   ]],
 ];
-const FIN_BANKS = /\b(chase|bank of america|wells fargo|truist|pnc|citibank|citizens|capital one|td bank|regions|us bank|fifth third|huntington|navy federal|chime|novo|bluevine|mercury|relay|axos|live oak|amex|american express)\b/i;
-function parseFin(text){
-  const lines = text.split(/\r?\n/).map(l=>l.replace(/[|•·]+/g," ").replace(/\s+/g," ").trim()).filter(l=>l.length>1);
-  const best = {};
-  const put=(k,v,score)=>{ v=(v||"").replace(/^[\s:#.,\-–—]+/,"").replace(/[\s;,]+$/,"").trim();
-    if(v.length<1) return; if(!best[k]||score>best[k].score) best[k]={v:v.slice(0,220),score}; };
-  const kwPass = [
-    ["bankName",["bank name","financial institution","banking with","depository"]],
-    ["acctNumber",["account number","account no","acct number","acct #"]],
-    ["routingNumber",["routing number","routing no","aba number","aba routing"]],
-    ["bankContact",["banker","branch contact","account manager","relationship manager"]],
-    ["bankOnline",["online banking","login url","banking url"]],
-    ["cardDue",["payment due","due date","statement date"]],
-    ["cardApr",["apr","interest rate","purchase rate"]],
-    ["paydex",["paydex"]],
-    ["intelliscore",["intelliscore","experian score","experian business"]],
-    ["equifax",["equifax business","equifax score"]],
-    ["fico",["fico sbss","sbss"]],
-    ["tradelines",["net-30","net 30","tradeline","trade line","vendor account"]],
-    ["creditLimitTotal",["total credit","credit limit","credit line","available credit"]],
-  ];
-  for (let i=0;i<lines.length;i++){
-    const low = lines[i].toLowerCase();
-    for (const [k,kws] of kwPass){
-      for (const kw of kws){
-        const at = low.indexOf(kw);
-        if (at<0) continue;
-        if (at>0 && /[a-z0-9]/.test(low[at-1])) continue;
-        let rest = lines[i].slice(at+kw.length).replace(/^[\s:#.\-–—]*/,"").trim();
-        if (rest.length>=1) put(k, rest, 3);
-        else if (lines[i+1] && lines[i+1].length<=120) put(k, lines[i+1], 2);
-        break;
-      }
-    }
-  }
-  // pattern passes
-  for (const l of lines){
-    if (!best.routingNumber){ const m=l.match(/routing[^\d]{0,14}(\d{9})\b/i); if(m) put("routingNumber", m[1], 4); }
-    if (!best.acctNumber){ const m=l.match(/acc(?:oun)?t[^\d]{0,14}(\d{6,17})\b/i); if(m) put("acctNumber", m[1], 4); }
-    if (!best.acctType){ const m=l.match(/\b(business )?(checking|savings|money market)\b/i); if(m) put("acctType", m[0], 2); }
-    if (!best.bankName){ const m=l.match(FIN_BANKS); if(m) put("bankName", l.length<60 ? l : m[0], 2); }
-    if (!best.paydex){ const m=l.match(/paydex[^\d]{0,12}(\d{1,3})/i); if(m) put("paydex", m[1], 4); }
-    if (!best.intelliscore){ const m=l.match(/intelliscore[^\d]{0,12}(\d{1,3})/i); if(m) put("intelliscore", m[1], 4); }
-  }
-  // credit cards: collect up to three distinct mentions
-  const cardRx = /\b(visa|mastercard|master card|amex|american express|discover)\b[^\n]{0,40}?(?:ending(?: in)?|last 4|x{2,4}|\*{2,4})?[^\d]{0,6}(\d{4})\b/i;
-  const seen = new Set(); let slot = 1;
-  for (const l of lines){
-    if (slot>3) break;
-    const m = l.match(cardRx);
-    if (!m || seen.has(m[2])) continue;
-    seen.add(m[2]);
-    const lim = l.match(/\$[\d,]+/);
-    put("card"+slot, m[1].toUpperCase()+" ···"+m[2]+(lim?" · limit "+lim[0]:""), 3);
-    slot++;
-  }
-  const fields = FIN_GROUPS.flatMap(([g,t,fs])=>fs.map(([k,label])=>({k,label})));
-  const found = [];
-  for (const f of fields){ if (best[f.k]) found.push({ k:f.k, label:f.label, value:best[f.k].v }); }
-  return found;
-}
+// Field extraction for banking, cards and credit scores now lives in
+// js/doc/extractors.js, with validation in js/doc/validators.js.
 function rProfile(biz) {
   const bp = _state.bp[biz];
   let html = `<div class="section-title">👤 BUSINESS PROFILE — ${BIZ[biz].name}</div>`;
@@ -1636,6 +1441,7 @@ function rProfile(biz) {
   </div>
   <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">OCR runs locally in your browser — the file is never uploaded. You review every value before it saves. 🔒 All profile data stays on this device.</div>`;
   if (ui.afStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += docaiUndoBarHTML();
   html += afPanelHTML(biz, "bp");
   html += rDocs(biz);
   for (const [gid, title, fields] of BP_GROUPS) {
@@ -1774,6 +1580,38 @@ function rDocs(biz) {
     </div>`).join("")+`</div>`;
   // --- Saved files & screenshots ---
   const afF = D.files.filter(f=>f.af), otherF = D.files.filter(f=>!f.af);
+  // --- Imported documents, grouped by the category they were filed under.
+  // The same file also stays listed in Autofill Uploads below; this view is
+  // how you find a document by what it is rather than when it arrived.
+  const imported = D.files.filter(f=>f.docai);
+  if (imported.length && window.DOCAI){
+    const CATS = DOCAI.classifier.CATEGORIES;
+    const byCat = {};
+    imported.forEach(f=>{ (byCat[f.category||"unfiled"] ||= []).push(f); });
+    html += docSecHdr("cats", "🗂 DOCUMENTS BY CATEGORY", imported.length, !!ui.docOpen.cats);
+    if (ui.docOpen.cats){
+      html += `<div class="col" style="margin-bottom:12px;gap:10px">`;
+      Object.keys(byCat).forEach(cat=>{
+        const label = (CATS[cat]||CATS.unfiled).label;
+        html += `<div class="card" style="padding:12px 14px;${cat==="unfiled"?"border-left:3px solid var(--amber);":""}">
+          <div style="font-size:12px;letter-spacing:0.15em;color:#94a3b8;font-weight:700;margin-bottom:8px">${esc(label)} — ${byCat[cat].length}</div>`
+          + byCat[cat].map(f=>`
+          <div style="display:flex;gap:10px;align-items:flex-start;padding:7px 0;border-top:1px solid rgba(255,255,255,0.05)">
+            <span style="cursor:pointer;flex-shrink:0" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>
+            <div style="flex:1;min-width:0">
+              <div style="font-size:13px;color:#e2e8f0;cursor:pointer;word-break:break-word" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}</div>
+              <div style="font-size:11px;color:#8794ab;margin-top:2px">${esc(f.docTypeLabel||"")}${f.issuer?` · ${esc(f.issuer)}`:""}${f.documentDate?` · ${esc(f.documentDate)}`:""}${f.pageCount?` · ${f.pageCount} page(s)`:""}</div>
+              ${(f.linkedFields&&f.linkedFields.length)?`<div style="font-size:11px;color:#6b7a90;margin-top:3px">Filled ${f.linkedFields.length} field(s): ${esc(f.linkedFields.map(d=>DOCAI.mapping.label(d)).join(", "))}</div>`:`<div style="font-size:11px;color:#6b7a90;margin-top:3px">Filed on its own — no field values were taken from it.</div>`}
+              ${f.hasBlob===false?`<div style="font-size:11px;color:var(--amber);margin-top:3px">The file itself could not be stored — this is a record only.</div>`:""}
+            </div>
+            <span style="font-size:11px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)}</span>
+            <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
+          </div>`).join("")
+          + `</div>`;
+      });
+      html += `</div>`;
+    }
+  }
   html += docSecHdr("afu", "🪄 AUTOFILL UPLOADS", afF.length, !!ui.docOpen.afu);
   if (ui.docOpen.afu && !afF.length) html += `<div class="empty" style="margin-bottom:12px;padding:18px">No autofill uploads yet — every photo or PDF you run through autofill lands here automatically.</div>`;
   if (ui.docOpen.afu && afF.length){
@@ -1853,6 +1691,7 @@ async function autofillFromScan(biz, idx){
     const h = await idbGet("docs-"+biz);
     const meta = _state.docs[biz].scan.files[idx];
     const f = await (await h.getFileHandle(meta.name)).getFile();
+    _state.activeTab = "strength";   // the review panel renders here
     runAutofill(f, biz);
   } catch(e){ ui.docStatus = "Couldn't read that file: " + e.message; render(); }
 }
@@ -1879,10 +1718,28 @@ function renameDocFile(biz,id){
   const n=prompt("Rename file:", f.name);
   if(n && n.trim()){ f.name=n.trim(); commit(); }
 }
-function delDocFile(biz,id){ _state.docs[biz].files=_state.docs[biz].files.filter(f=>f.id!==id); commit(); }
+function delDocFile(biz,id){
+  const f=_state.docs[biz].files.find(x=>x.id===id);
+  _state.docs[biz].files=_state.docs[biz].files.filter(x=>x.id!==id);
+  // Drop the stored blob and its extracted text alongside the record.
+  if (f && f.blobId && window.DOCAI){
+    DOCAI.store.deleteBlob(f.blobId).catch(()=>{});
+    if (f.textRef) DOCAI.store.deleteText(f.textRef).catch(()=>{});
+  }
+  commit();
+}
 function openSavedDoc(biz,id){
   const f=_state.docs[biz].files.find(x=>x.id===id);
   if(!f) return;
+  // Imported documents keep their blob in IndexedDB; files saved by the older
+  // path keep a base64 dataUri in state. Both are opened here.
+  if (f.blobId && window.DOCAI){
+    DOCAI.store.getBlob(f.blobId).then(b=>{
+      if(!b){ ui.docStatus="\""+f.name+"\" is no longer in document storage."; render(); return; }
+      window.open(DOCAI.util.objectUrl(b),"_blank");
+    }).catch(e=>{ ui.docStatus="Couldn't open that document: "+e.message; render(); });
+    return;
+  }
   if(!f.dataUri){ ui.docStatus="\""+f.name+"\" was too big to store — it's listed as a reference only."; render(); return; }
   fetch(f.dataUri).then(r=>r.blob()).then(b=>window.open(URL.createObjectURL(new Blob([b],{type:f.type||b.type})),"_blank"));
 }
@@ -1918,13 +1775,13 @@ document.getElementById("docFile").addEventListener("change", e=>{
 });
 // paste a screenshot while on the Profile page → saved files
 document.addEventListener("paste", e=>{
-  if (_state.activeTab!=="profile") return;
+  if (_state.activeTab!=="strength") return;
   const imgs=[...(e.clipboardData?.files||[])].filter(f=>f.type.startsWith("image/"));
   if (imgs.length) { e.preventDefault(); addDocFiles(imgs, _state.activeBiz); }
 });
 
 /* === drag-and-drop into Saved Files (added) === */
-(function(){function onP(){try{return _state.activeTab==="profile";}catch(e){return false;}}function hasF(e){return e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],"Files")>=0;}function cue(o){document.body.style.outline=o?"3px dashed #f5b301":"";document.body.style.outlineOffset=o?"-10px":"";}window.addEventListener("dragover",function(e){if(onP()&&hasF(e)){e.preventDefault();try{e.dataTransfer.dropEffect="copy";}catch(_){}cue(true);}});window.addEventListener("dragleave",function(e){if(e.relatedTarget===null)cue(false);});window.addEventListener("dragend",function(){cue(false);});window.addEventListener("drop",function(e){if(onP()&&e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length){e.preventDefault();cue(false);addDocFiles(e.dataTransfer.files,_state.activeBiz);}});})();
+(function(){function onP(){try{return _state.activeTab==="strength";}catch(e){return false;}}function hasF(e){return e.dataTransfer&&Array.prototype.indexOf.call(e.dataTransfer.types||[],"Files")>=0;}function cue(o){document.body.style.outline=o?"3px dashed #f5b301":"";document.body.style.outlineOffset=o?"-10px":"";}window.addEventListener("dragover",function(e){if(onP()&&hasF(e)){e.preventDefault();try{e.dataTransfer.dropEffect="copy";}catch(_){}cue(true);}});window.addEventListener("dragleave",function(e){if(e.relatedTarget===null)cue(false);});window.addEventListener("dragend",function(){cue(false);});window.addEventListener("drop",function(e){if(onP()&&e.dataTransfer&&e.dataTransfer.files&&e.dataTransfer.files.length){e.preventDefault();cue(false);addDocFiles(e.dataTransfer.files,_state.activeBiz);}});})();
 
 
 // ---------- Autofill file picker ----------

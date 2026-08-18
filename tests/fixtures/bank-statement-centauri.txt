@@ -1,0 +1,25 @@
+# Sanitized test fixture. Every name, number and address below is
+# invented for testing. The routing numbers begin with 99, a prefix
+# no Federal Reserve district uses, so they cannot match a real bank.
+# Phone numbers use the 555 placeholder exchange.
+
+FIRST EXAMPLE BANK
+Business Banking Statement
+
+Bank Name: First Example Bank
+Statement Period: 03/01/2024 - 03/31/2024
+Statement Date: 03/31/2024
+
+CENTAURI WORLD LLC
+100 Example Street
+Springfield, IL 62701
+
+Account Summary
+Account Type: Business Checking
+Account Number: 000123456789
+Routing Number: 990000013
+
+Beginning Balance $12,500.00
+Deposits and Credits $8,420.55
+Withdrawals ($3,110.25)
+Ending Balance $17,810.30

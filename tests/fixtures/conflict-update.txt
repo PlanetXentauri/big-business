@@ -1,0 +1,13 @@
+# Sanitized test fixture. Every name, number and address below is
+# invented for testing. The routing numbers begin with 99, a prefix
+# no Federal Reserve district uses, so they cannot match a real bank.
+# Phone numbers use the 555 placeholder exchange.
+
+STATE OF ILLINOIS
+ARTICLES OF AMENDMENT
+
+Name of the limited liability company: CENTAURI WORLD LLC
+Document Number: L24000999002
+Business Phone: (217) 555-0188
+Business Email: contact@example-centauri.test
+Principal place of business: 250 Second Avenue, Springfield, IL 62702

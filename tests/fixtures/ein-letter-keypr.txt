@@ -1,0 +1,20 @@
+# Sanitized test fixture. Every name, number and address below is
+# invented for testing. The routing numbers begin with 99, a prefix
+# no Federal Reserve district uses, so they cannot match a real bank.
+# Phone numbers use the 555 placeholder exchange.
+
+INTERNAL REVENUE SERVICE
+DEPARTMENT OF THE TREASURY
+CINCINNATI OH 45999-0023
+
+Date of this notice: 04/12/2024
+
+EMPLOYER IDENTIFICATION NUMBER: 91-7654321
+FORM: SS-4
+
+KEYPR ON COMPANY
+100 EXAMPLE STREET
+SPRINGFIELD IL 62701
+
+Thank you for applying for an Employer Identification Number (EIN).
+We assigned you EIN 91-7654321. This CP 575 notice is your confirmation.

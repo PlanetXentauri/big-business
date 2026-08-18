@@ -1,0 +1,15 @@
+# Sanitized test fixture. Every name, number and address below is
+# invented for testing. The routing numbers begin with 99, a prefix
+# no Federal Reserve district uses, so they cannot match a real bank.
+# Phone numbers use the 555 placeholder exchange.
+
+MEETING NOTES
+
+Attendees: three people
+Topic: warehouse layout
+Action items:
+ - measure the loading bay
+ - reorder shelving
+ - call back about the forklift quote
+
+Nothing further was decided.
