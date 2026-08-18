@@ -1,0 +1,18 @@
+<!-- Sanitized test fixture. Every name, domain, address, phone and
+     identifier below is invented. Domains use the reserved .test TLD
+     (RFC 6761), phone numbers the 555 placeholder exchange. -->
+<!DOCTYPE html><html><head>
+<title>Totally Normal Page</title>
+<script type="application/ld+json">
+{"__proto__":{"polluted":"yes"},"@type":"Organization","name":"Sneaky Corp",
+ "constructor":{"prototype":{"alsoPolluted":true}},
+ "telephone":"(217) 555-0199"}
+</script>
+</head><body>
+<script>window.__hostileRan = true;</script>
+<img src="x" onerror="window.__hostileImg = true">
+<p onclick="window.__hostileClick=true">Click me</p>
+<p>Contact: <a href="javascript:alert(document.cookie)">click here</a></p>
+<p>Phone: (217) 555-0199</p>
+<iframe src="https://evil.test/frame"></iframe>
+</body></html>

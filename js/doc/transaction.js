@@ -218,14 +218,19 @@
         var k = files.findIndex(function (f) { return f.id === j.docId; });
         if (k >= 0) files.splice(k, 1);
       }
-      j.checkpoints.forEach(function (cp) {
-        var arr = state.strengthFiles[j.biz] && state.strengthFiles[j.biz][cp];
-        if (!arr) return;
-        var left = arr.filter(function (f) { return f.linkOf !== j.docId; });
-        // Leave no empty array behind, so undo restores the original shape.
-        if (left.length) state.strengthFiles[j.biz][cp] = left;
-        else delete state.strengthFiles[j.biz][cp];
-      });
+      detachCheckpoints(state, j, j.docId);
+    }
+
+    // link record and its checkpoint attachments
+    if (j.webId) {
+      var web = state.docs[j.biz] && state.docs[j.biz].web;
+      if (web) {
+        var w = web.findIndex(function (r) { return r.id === j.webId; });
+        if (w >= 0) web.splice(w, 1);
+        // Only remove the array if this import is what created it.
+        if (!web.length && j.webArrayCreated) delete state.docs[j.biz].web;
+      }
+      detachCheckpoints(state, j, j.webId);
     }
 
     T.lastImport = null;
@@ -242,17 +247,193 @@
       return {
         ok: true,
         message: "Undid the import of “" + j.fileName + "” — " +
-          j.fieldWrites.length + " field(s) restored" + (j.docId ? " and the document removed." : ".")
+          j.fieldWrites.length + " field(s) restored" +
+          (j.docId ? " and the document removed." : j.webId ? " and the saved link removed." : ".")
       };
     });
   };
+
+  // Remove the checkpoint attachments an import created, leaving no empty
+  // array behind so undo restores the original shape exactly.
+  function detachCheckpoints(state, j, ownerId) {
+    j.checkpoints.forEach(function (cp) {
+      var arr = state.strengthFiles[j.biz] && state.strengthFiles[j.biz][cp];
+      if (!arr) return;
+      var left = arr.filter(function (f) { return f.linkOf !== ownerId; });
+      if (left.length) state.strengthFiles[j.biz][cp] = left;
+      else delete state.strengthFiles[j.biz][cp];
+    });
+  }
 
   T.canUndo = function () { return !!T.lastImport; };
   T.describeLast = function () {
     var j = T.lastImport;
     if (!j) return "";
-    return j.fileName + " → " + (j.biz === "centauri" ? "Centauri World LLC" : "Keypr On Company") +
+    var what = j.kind === "link" ? "🔗 " : "";
+    return what + String(j.fileName).slice(0, 60) + " → " +
+      (j.biz === "centauri" ? "Centauri World LLC" : "Keypr On Company") +
       " · " + j.fieldWrites.length + " field(s)";
+  };
+
+  /* ============================================================
+     Web sources.
+
+     A link import is the same transaction with a different artifact: instead
+     of a blob and a document record it writes a link record. Field writes,
+     conflict resolution, value history, checkpoint attachment and undo are
+     the shared code above and below — a link and a PDF are equally
+     reversible, and neither can overwrite anything silently.
+     ============================================================ */
+  T.saveLink = function (state, proposal, decisions, hooks) {
+    hooks = hooks || {};
+    var LS = (root.DOCAI && root.DOCAI.linkStore);
+    var biz = decisions.biz;
+    if (!biz || (biz !== "centauri" && biz !== "keypr")) {
+      return Promise.reject(new Error("No business was confirmed — nothing was saved."));
+    }
+    if (!LS) return Promise.reject(new Error("The link store did not load."));
+
+    var journal = {
+      id: U.uid("tx"),
+      at: Date.now(),
+      biz: biz,
+      kind: "link",
+      fileName: proposal.title || proposal.url,
+      fieldWrites: [],
+      historyWrites: [],
+      docId: null,
+      webId: null,
+      textId: null,
+      blobId: null,
+      checkpoints: []
+    };
+
+    var fields = (decisions.fields || []).filter(function (f) {
+      return f && f.dest && !MAP.isInternal(f.dest) && String(f.value).trim() !== "";
+    });
+
+    var recordId = U.uid("web");
+
+    // Page text goes to IndexedDB, never into state. If that fails the import
+    // still proceeds — the text is a convenience, the record is the point.
+    var textStep = (decisions.keepText !== false && proposal.pageText)
+      ? LS.putText(recordId, proposal.pageText, proposal.finalUrl || proposal.url)
+          .then(function (ref) { journal.textId = ref; return ref; })
+          .catch(function () { return null; })
+      : Promise.resolve(null);
+
+    return textStep.then(function (textRef) {
+      // ---- field writes (identical rules to a document import)
+      fields.forEach(function (f) {
+        var dest = MAP.get(f.dest);
+        if (!dest) return;
+        var target = storeFor(state, biz, dest.store);
+        var before = target[dest.key];
+        var had = before !== undefined && before !== null && String(before) !== "";
+
+        if ((f.resolution === "keep" || f.resolution === "alternate") && had) {
+          addHistory(state, biz, f.dest, f.value, proposal, "alternate", journal);
+          return;
+        }
+        journal.fieldWrites.push({
+          store: dest.store, key: dest.key, dest: f.dest,
+          before: had ? before : undefined, had: had, after: f.value
+        });
+        if (had) addHistory(state, biz, f.dest, before, proposal, "replaced", journal);
+        target[dest.key] = f.value;
+      });
+
+      var written = journal.fieldWrites.map(function (w) { return w.dest; });
+      journal.checkpoints = MAP.checkpointsFor(written);
+
+      // A page type can evidence a checkpoint on its own — a Google Business
+      // Profile page is proof of that checkpoint even when it fills no field.
+      var typeCheckpoint = decisions.checkpoint || (proposal.classification && proposal.classification.checkpoint);
+      if (typeCheckpoint && journal.checkpoints.indexOf(typeCheckpoint) < 0) {
+        journal.checkpoints.push(typeCheckpoint);
+        journal.typeCheckpoint = typeCheckpoint;
+      }
+
+      // ---- the link record
+      var evidence = fields.map(function (f) {
+        var c = findCandidate(proposal, f.dest);
+        return {
+          dest: f.dest,
+          label: MAP.label(f.dest),
+          value: f.value,
+          masked: U.isSensitive(f.dest) ? U.maskFor(f.dest, f.value) : f.value,
+          where: c && c.web ? c.web.where : "",
+          source: c && c.web ? c.web.source : "",
+          excerpt: c ? c.excerpt : ""
+        };
+      });
+
+      var rec = LS.buildRecord({
+        id: recordId,
+        biz: biz,
+        url: proposal.url,
+        normalizedUrl: proposal.normalizedUrl,
+        finalUrl: proposal.finalUrl,
+        canonicalUrl: proposal.canonicalUrl,
+        domain: proposal.domain,
+        title: proposal.title,
+        siteType: decisions.siteType || proposal.classification.typeId,
+        siteTypeLabel: decisions.siteTypeLabel || proposal.classification.label,
+        category: decisions.category || proposal.classification.category,
+        issuer: proposal.issuer,
+        retrievedAt: proposal.retrievedAt,
+        retrievalStatus: proposal.retrievalStatus,
+        retrievalNote: proposal.retrievalReason || (proposal.notes || [])[0] || "",
+        httpStatus: proposal.httpStatus,
+        redirected: proposal.redirected,
+        contentHash: proposal.contentHash,
+        linkedFields: written,
+        linkedCheckpoints: journal.checkpoints,
+        reviewStatus: "reviewed",
+        evidence: evidence,
+        businessEvidence: (proposal.business.evidence || []),
+        textRef: textRef,
+        notes: decisions.notes || ""
+      });
+
+      // Remember whether this import created the array, so undo can restore
+      // the exact original shape without deleting one that pre-existed.
+      journal.webArrayCreated = !(state.docs[biz] && state.docs[biz].web);
+      LS.ensure(state, biz).unshift(rec);
+      journal.webId = rec.id;
+
+      // Attach to every checkpoint it evidences, so the source sits beside
+      // the item it proves.
+      journal.checkpoints.forEach(function (cp) {
+        state.strengthFiles[biz] = state.strengthFiles[biz] || {};
+        var arr = (state.strengthFiles[biz][cp] = state.strengthFiles[biz][cp] || []);
+        arr.push({
+          id: U.uid("skf"),
+          name: (proposal.title || proposal.domain || proposal.url).slice(0, 120),
+          type: "text/uri-list",
+          size: 0, ts: Date.now(), dataUri: null, ref: false,
+          docaiWeb: true, url: proposal.finalUrl || proposal.url, linkOf: rec.id
+        });
+      });
+
+      T.lastImport = journal;
+      if (hooks.commit) hooks.commit();
+      return journal;
+    });
+  };
+
+  function findCandidate(proposal, dest) {
+    var list = proposal.candidates || [];
+    for (var i = 0; i < list.length; i++) if (list[i].dest === dest) return list[i];
+    return null;
+  }
+
+  /* Save the link and nothing else. Still a full transaction, still undoable. */
+  T.saveLinkOnly = function (state, proposal, decisions, hooks) {
+    var d = {};
+    Object.keys(decisions || {}).forEach(function (k) { d[k] = decisions[k]; });
+    d.fields = [];
+    return T.saveLink(state, proposal, d, hooks);
   };
 
   /* ---------- save the document only ----------

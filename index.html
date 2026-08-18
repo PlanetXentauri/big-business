@@ -60,6 +60,15 @@ input:focus, select:focus, textarea:focus { border-color: var(--accent); }
   cursor: pointer; font-size: 13px; letter-spacing: 0.08em;
 }
 .btn-dashed:hover { border-color: var(--accent); color: var(--accent); }
+.autofill-actions {
+  display: grid; grid-template-columns: repeat(3, minmax(0, 1fr));
+  gap: 12px; margin-bottom: 8px;
+}
+.autofill-actions .btn { min-height: 60px; padding: 10px 8px; }
+@media (max-width: 620px) {
+  .autofill-actions { grid-template-columns: 1fr; gap: 8px; }
+  .autofill-actions .btn { min-height: 48px; }
+}
 .card {
   background: var(--panel); border: 1px solid var(--border);
   border-radius: 14px; overflow: hidden;
@@ -149,6 +158,16 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 <script src="js/doc/pipeline.js"></script>
 <script src="js/doc/transaction.js"></script>
 <script src="js/doc/review-ui.js"></script>
+<!-- Autofill from Link: website ingestion. Separate from the Apify contact
+     scraper at the foot of this file — no shared code, no shared token. -->
+<script src="js/doc/link-url.js"></script>
+<script src="js/doc/link-html.js"></script>
+<script src="js/doc/link-fetch.js"></script>
+<script src="js/doc/link-classifier.js"></script>
+<script src="js/doc/link-extractors.js"></script>
+<script src="js/doc/link-store.js"></script>
+<script src="js/doc/link-pipeline.js"></script>
+<script src="js/doc/link-review.js"></script>
 </head>
 <body>
 
@@ -373,6 +392,7 @@ function migrate() { // add keys introduced after first release
     _state.catalogMeta[b] ||= { lastSync: null, source: "", srcUrl: "" };
     _state.docs[b] ||= { files: [], links: [], dnb: defaultDnb(), scan: { files: [], lastScan: null, folderName: "" } };
     _state.bp[b] ||= {};
+    _state.docs[b].web ||= [];
     _state.docaiHistory ||= {};
     _state.docaiHistory[b] ||= {};
     const old = _state.profiles && _state.profiles[b];
@@ -858,13 +878,16 @@ function delProd(biz,id){ if(!confirm("Delete this product?"))return; _state.cat
 function rFinancials(biz) {
   const fin = _state.fin[biz];
   let html = `<div class="section-title">🏦 BANKING &amp; CREDIT — ${BIZ[biz].name}</div>
-  <div class="row" style="margin-bottom:8px">
-    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg','fin')">⚡ AUTOFILL FROM PHOTO 📷</button>
-    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf','fin')">⚡ AUTOFILL FROM PDF 📄</button>
+  <div class="autofill-actions">
+    <button class="btn btn-red" onclick="pickAutofill('${biz}','afImg','fin')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" onclick="pickAutofill('${biz}','afPdf','fin')">⚡ AUTOFILL FROM PDF 📄</button>
+    <button class="btn btn-red" onclick="docaiPickLink('${biz}')">🔗 ADD LINK &amp; AUTOFILL 🌐</button>
   </div>
-  <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">Feed it a bank statement, card statement, or credit report — it reads locally in your browser and you review before anything saves. 🔒 Stays on this device.</div>`;
+  ${autofillHintHTML()}
+  <div style="font-size:12px;color:#8794ab;margin-bottom:12px;text-align:center">Feed it a bank statement, card statement, or credit report — or a link to a banking or processor page.</div>`;
   if (ui.afStatus && _state.activeTab==="financials") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
   html += docaiUndoBarHTML();
+  html += webLinkPanelHTML(biz);
   html += afPanelHTML(biz, "fin");
   for (const [gid, title, fields] of FIN_GROUPS) {
     const filled = fields.filter(([k])=>fin[k]).length;
@@ -1215,6 +1238,204 @@ async function runAutofill(file, biz, mode){
     render();
   }
 }
+
+// ---------- Autofill from Link (web sources) ----------
+// The bridge to js/doc/link-*.js. Like the document bridge above, nothing
+// here writes to state — DOCAI.transaction does that, only from a Save.
+// This is a separate pipeline from the Apify "Autofill Contact from Link"
+// widget at the bottom of this file; the two share no code and no token.
+// The line under the three autofill buttons. LINK is the one that does two
+// jobs at once, so it says so here rather than only inside the panel.
+function autofillHintHTML(){
+  return `<div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center;line-height:1.55">
+    <b style="color:#e2e8f0">AUTOFILL FROM PHOTO</b> and <b style="color:#e2e8f0">AUTOFILL FROM PDF</b> read a file you already have.
+    <b style="color:var(--accent)">ADD LINK &amp; AUTOFILL</b> reads a web page — it fills your fields
+    <b style="color:#e2e8f0">and</b> saves the clickable link under this business.<br>
+    You review everything before anything saves. 🔒 It all stays on this device.
+  </div>`;
+}
+function docaiPickLink(biz){
+  ui.showForm.weblink = !ui.showForm.weblink;
+  ui.webLinkBiz = biz;
+  ui.webLinkError = null;
+  if (_state.activeTab !== "strength" && _state.activeTab !== "financials") _state.activeTab = "strength";
+  render();
+  const el = document.getElementById("wl-url");
+  if (el) el.focus();
+}
+
+// The link-entry panel: address, what will actually be requested, the
+// browser limitation stated up front, and the sources already saved.
+function webLinkPanelHTML(biz){
+  if (!ui.showForm.weblink || ui.webLinkBiz !== biz || !window.DOCAI) return "";
+  const saved = DOCAI.linkStore.list(_state, biz);
+  const typed = ui.webLinkTyped || "";
+  const preview = typed.trim() ? DOCAI.linkUrl.normalize(typed) : null;
+
+  let html = `<div class="form-panel">
+    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">🔗 LINK — ${esc(BIZ[biz].name)}</div>
+    <div style="font-size:12px;color:#9aa8c2;line-height:1.5">This does two things at once: it <b style="color:#e2e8f0">fills your fields</b> from the page,
+      and <b style="color:#e2e8f0">saves the link</b> as a web source under this business. You review both before anything saves.</div>
+    <input id="wl-url" placeholder="example.com/about  or  https://example.com/about"
+      value="${esc(typed)}" oninput="ui.webLinkTyped=this.value;docaiRenderUrlPreview()"
+      onkeydown="if(event.key==='Enter'){event.preventDefault();docaiAnalyzeLink('${biz}');}">
+    <div id="wl-preview" style="font-size:12px;min-height:18px">${urlPreviewHTML(preview)}</div>`;
+
+  if (ui.webLinkError){
+    html += `<div style="font-size:13px;color:#ef4444;background:rgba(239,68,68,0.1);border:1px solid rgba(239,68,68,0.35);border-radius:8px;padding:8px 10px">${esc(ui.webLinkError)}</div>`;
+  }
+
+  html += `<div class="row">
+      <button class="btn btn-red" style="flex:2" onclick="docaiAnalyzeLink('${biz}')">🔎 ANALYZE LINK</button>
+      <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.weblink=false;ui.webLinkError=null;render()">CANCEL</button>
+    </div>
+    <div style="font-size:12px;color:#9aa8c2;line-height:1.5">
+      🔒 The page is read in this browser and nothing is uploaded. No AI or scraping service is involved.<br>
+      ⚠ Browsers only let a page read another site when that site allows it. Many pages — anything behind a
+      login, bot protection, or without CORS headers — cannot be read this way. When that happens you will be
+      told plainly, and offered the alternatives: open it, paste its text, or save it as a PDF.
+    </div>`;
+
+  if (saved.length){
+    html += `<div style="font-size:12px;letter-spacing:0.15em;color:#94a3b8;font-weight:700;margin-top:4px">
+      ALREADY SAVED FOR THIS BUSINESS (${saved.length})</div>
+      <div class="col" style="gap:5px">` +
+      saved.slice(0,6).map(r=>`
+        <div style="display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.03);border-radius:8px;padding:6px 9px">
+          <span style="flex:1;min-width:0;font-size:12px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap">
+            ${esc(r.title || r.url)}</span>
+          <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px"
+            onclick="DOCAI.linkReview.openUrl(${DOCAI.linkReview.jsArg(r.finalUrl||r.url)})">↗ OPEN</button>
+          <button class="btn btn-ghost" style="font-size:11px;padding:3px 8px"
+            onclick="ui.webLinkTyped=${DOCAI.linkReview.jsArg(r.finalUrl||r.url)};render()">USE</button>
+        </div>`).join("") +
+      (saved.length>6?`<div style="font-size:11px;color:#6b7a90">…and ${saved.length-6} more in Saved Web Sources below.</div>`:"") +
+      `</div>`;
+  }
+  return html + `</div>`;
+}
+
+// Show the exact address that will be requested, before anything is requested.
+function urlPreviewHTML(preview){
+  if (!preview) return `<span style="color:#6b7a90">Enter a website address.</span>`;
+  if (!preview.ok) return `<span style="color:var(--amber)">⚠ ${esc(preview.reason)}${preview.detail?" — "+esc(preview.detail):""}</span>`;
+  let s = `<span style="color:#8794ab">Will request:</span> <span style="color:#93c5fd;word-break:break-all">${esc(preview.url)}</span>`;
+  if (preview.changes && preview.changes.length){
+    s += `<div style="color:#6b7a90;font-size:11px;margin-top:2px">${preview.changes.map(c=>"· "+esc(c)).join("<br>")}</div>`;
+  }
+  return s;
+}
+function docaiRenderUrlPreview(){
+  const el = document.getElementById("wl-preview");
+  if (!el || !window.DOCAI) return;
+  const t = (ui.webLinkTyped||"").trim();
+  el.innerHTML = urlPreviewHTML(t ? DOCAI.linkUrl.normalize(t) : null);
+}
+
+async function docaiAnalyzeLink(biz, pastedText){
+  if (!window.DOCAI || !DOCAI.linkPipeline){
+    ui.webLinkError = "The link engine didn't load — check that js/doc is present."; render(); return;
+  }
+  const input = document.getElementById("wl-url");
+  const raw = pastedText ? (ui.webLinkLastUrl || "") : ((input ? input.value : ui.webLinkTyped) || "");
+  const check = DOCAI.linkUrl.normalize(raw);
+  if (!check.ok){
+    ui.webLinkError = check.reason + (check.detail ? " " + check.detail : "");
+    render(); return;
+  }
+  ui.webLinkError = null;
+  ui.webLinkLastUrl = check.url;
+  ui.showForm.weblink = false;
+  DOCAI.reviewUI.close();
+
+  try {
+    const proposal = await DOCAI.linkPipeline.run(check.url, {
+      state: _state,
+      profiles: docaiProfiles(),
+      pastedText: pastedText || null,
+      onStatus: (msg) => { ui.afStatus = msg; render(); }
+    });
+    ui.afStatus = null;
+    const ctx = docaiCtx();
+    // Re-running with pasted text keeps the user inside the same review.
+    ctx.onPasted = (url, text) => { ui.webLinkLastUrl = url; docaiAnalyzeLink(biz, text); };
+    DOCAI.reviewUI.lastCtx = ctx;
+    DOCAI.reviewUI.open(proposal, ctx);
+    ui.afReview = true;
+    if (_state.activeTab !== "strength" && _state.activeTab !== "financials") _state.activeTab = "strength";
+    render();
+  } catch(e){
+    ui.afStatus = null;
+    ui.webLinkError = "Couldn't analyze that link: " + e.message;
+    ui.showForm.weblink = true;
+    render();
+  }
+}
+
+// ---------- saved web sources: recheck, edit, remove ----------
+async function docaiRecheckLink(biz, id){
+  const rec = DOCAI.linkStore.list(_state, biz).find(r=>r.id===id);
+  if (!rec) return;
+  ui.docStatus = "Rechecking " + DOCAI.linkUrl.display(rec.finalUrl||rec.url, 50) + "…"; render();
+  try {
+    const out = await DOCAI.linkPipeline.recheck(rec, { onStatus:(m)=>{ ui.docStatus=m; render(); } });
+    DOCAI.linkStore.recordCheck(rec, {
+      at: out.at, status: out.status, note: out.note, httpStatus: out.httpStatus,
+      finalUrl: out.finalUrl, changed: out.changed,
+      // Only adopt a new hash when the page was actually read.
+      contentHash: out.ok ? out.contentHash : ""
+    });
+    if (out.ok && out.changed){
+      ui.docStatus = "⚠ “" + (rec.title||rec.url) + "” has changed since it was saved. " +
+        "Nothing was altered — run Autofill from Link again to review the new values.";
+    } else if (out.ok){
+      ui.docStatus = "✓ " + out.note;
+    } else {
+      ui.docStatus = (out.gone ? "⚠ That page is gone (" + out.httpStatus + "). " : "⚠ ") + out.note +
+        " The saved record and its evidence were kept.";
+    }
+    save(); render();
+  } catch(e){
+    ui.docStatus = "Recheck failed: " + e.message; render();
+  }
+}
+
+function docaiEditLink(biz, id){
+  const rec = DOCAI.linkStore.list(_state, biz).find(r=>r.id===id);
+  if (!rec) return;
+  const title = prompt("Page title:", rec.title || "");
+  if (title === null) return;
+  const notes = prompt("Notes about this source (optional):", rec.notes || "");
+  if (notes === null) return;
+  rec.title = String(title).slice(0,200);
+  rec.notes = String(notes).slice(0,1000);
+  commit();
+}
+
+function docaiRemoveLink(biz, id){
+  const list = DOCAI.linkStore.list(_state, biz);
+  const rec = list.find(r=>r.id===id);
+  if (!rec) return;
+  const fields = DOCAI.linkStore.dependentFields(rec);
+  let msg = "Remove this saved web source?\n\n" + (rec.title || rec.url);
+  if (fields.length){
+    // Removing the source does not remove what it supported — say so, so the
+    // choice is made knowing the values stay behind without their evidence.
+    msg += "\n\nIt is the recorded source for " + fields.length + " saved field(s):\n" +
+      fields.map(d=>"  · " + DOCAI.mapping.label(d)).join("\n") +
+      "\n\nThose values and any other supporting documents will be KEPT. Only this link record is removed.";
+  }
+  if (!confirm(msg)) return;
+  _state.docs[biz].web = list.filter(r=>r.id!==id);
+  // Detach it from any strength checkpoint it was attached to.
+  Object.keys(_state.strengthFiles[biz]||{}).forEach(cp=>{
+    const left = (_state.strengthFiles[biz][cp]||[]).filter(f=>f.linkOf!==id);
+    if (left.length) _state.strengthFiles[biz][cp] = left; else delete _state.strengthFiles[biz][cp];
+  });
+  if (rec.textRef) DOCAI.linkStore.deleteText(rec.textRef);
+  ui.docStatus = "Removed the web source. The field values it supported were kept.";
+  commit();
+}
 // ===== PROFILE STRENGTH =====
 // every category that makes a business profile strong = one step toward 100%
 const STRENGTH_ITEMS = [
@@ -1331,13 +1552,16 @@ function rStrength(biz){
   <div style="height:4px;background:rgba(255,255,255,0.05);border-radius:2px;overflow:hidden;margin-bottom:14px;">
     <div style="height:100%;width:${pct}%;background:${BIZ[biz].accent};transition:width 1s ease"></div>
   </div>
-  <div class="row" style="margin-bottom:8px">
-    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg','bp')">⚡ AUTOFILL FROM PHOTO 📷</button>
-    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf','bp')">⚡ AUTOFILL FROM PDF 📄</button>
+  <div class="autofill-actions">
+    <button class="btn btn-red" onclick="pickAutofill('${biz}','afImg','bp')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" onclick="pickAutofill('${biz}','afPdf','bp')">⚡ AUTOFILL FROM PDF 📄</button>
+    <button class="btn btn-red" onclick="docaiPickLink('${biz}')">🔗 ADD LINK &amp; AUTOFILL 🌐</button>
   </div>
-  <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">Autofill feeds your Profile & Banking fields — AUTO items below flip to done the moment their field is filled. Click any circle to override: ✓ done → ⏳ waiting → upcoming → back to AUTO.</div>`;
+  ${autofillHintHTML()}
+  <div style="font-size:12px;color:#8794ab;margin-bottom:12px;text-align:center">AUTO items below flip to done the moment their field is filled. Click any circle to override: ✓ done → ⏳ waiting → upcoming → back to AUTO.</div>`;
   if (ui.afStatus && _state.activeTab==="strength") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
   html += docaiUndoBarHTML();
+  html += webLinkPanelHTML(biz);
   html += afPanelHTML(biz, "bp");
   html += `<div class="col" style="gap:8px;margin-bottom:14px">` + rows.map((r,i)=>{
     const sc = STEP_COLORS[r.st] || STEP_COLORS.upcoming;
@@ -1435,13 +1659,15 @@ function rProfile(biz) {
   let html = `<div class="section-title">👤 BUSINESS PROFILE — ${BIZ[biz].name}</div>`;
   if (biz==="keypr") html += `<div style="width:290px;margin:0 auto 14px">${keyprLogoSVG()}</div>`;
   if (biz==="centauri") html += `<div style="width:290px;margin:0 auto 14px">${centauriLogoSVG()}</div>`;
-  html += `<div class="row" style="margin-bottom:8px">
-    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afImg')">⚡ AUTOFILL FROM PHOTO 📷</button>
-    <button class="btn btn-red" style="flex:1" onclick="pickAutofill('${biz}','afPdf')">⚡ AUTOFILL FROM PDF 📄</button>
+  html += `<div class="autofill-actions">
+    <button class="btn btn-red" onclick="pickAutofill('${biz}','afImg')">⚡ AUTOFILL FROM PHOTO 📷</button>
+    <button class="btn btn-red" onclick="pickAutofill('${biz}','afPdf')">⚡ AUTOFILL FROM PDF 📄</button>
+    <button class="btn btn-red" onclick="docaiPickLink('${biz}')">🔗 ADD LINK &amp; AUTOFILL 🌐</button>
   </div>
-  <div style="font-size:12px;color:#9aa8c2;margin-bottom:12px;text-align:center">OCR runs locally in your browser — the file is never uploaded. You review every value before it saves. 🔒 All profile data stays on this device.</div>`;
+  ${autofillHintHTML()}`;
   if (ui.afStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
   html += docaiUndoBarHTML();
+  html += webLinkPanelHTML(biz);
   html += afPanelHTML(biz, "bp");
   html += rDocs(biz);
   for (const [gid, title, fields] of BP_GROUPS) {
@@ -1544,18 +1770,19 @@ function rDocs(biz) {
     <button class="btn btn-red" style="flex:2;min-width:110px" onclick="scanDocs('${biz}')">🔄 UPDATE</button>
     <button class="btn btn-ghost" style="flex:2;min-width:150px" onclick="connectDocsFolder('${biz}')">📂 CONNECT OBSIDIAN FOLDER</button>
     <button class="btn btn-ghost" style="flex:1" onclick="pickDocFiles('${biz}')">📎 FILES</button>
-    <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.dlink=!ui.showForm.dlink;render()">🔗 LINK</button>
+    <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.dlink=!ui.showForm.dlink;render()">🔖 BOOKMARK</button>
   </div>
   <div style="font-size:12px;color:#9aa8c2;margin-bottom:10px">Tip: with this page open you can paste (Ctrl+V) a screenshot straight into saved files.</div>`;
   if (ui.docStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.docStatus)}</div>`;
   if (ui.showForm.dlink) {
     html += `<div class="form-panel">
-      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">ADD LINK</div>
+      <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">ADD BOOKMARK</div>
+      <div style="font-size:12px;color:#8794ab">Just stores the address. To read a page and fill your fields from it, use <b>🔗 LINK</b> at the top instead.</div>
       <input id="dk-label" placeholder="Label (e.g. Walmart Seller Center)">
       <input id="dk-url" placeholder="https://…">
       <label style="display:flex;gap:8px;align-items:center;font-size:13px;color:#94a3b8;cursor:pointer">
         <input type="checkbox" id="dk-dnb" style="width:auto"> Put in the Dun &amp; Bradstreet section</label>
-      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDocLink('${biz}')">💾 SAVE LINK</button>
+      <div class="row"><button class="btn btn-red" style="flex:1" onclick="addDocLink('${biz}')">💾 SAVE BOOKMARK</button>
       <button class="btn btn-ghost" onclick="ui.showForm.dlink=false;render()">CANCEL</button></div></div>`;
   }
   // --- Dun & Bradstreet panel ---
@@ -1634,9 +1861,14 @@ function rDocs(biz) {
       <button class="del-x" title="Rename" onclick="renameDocFile('${biz}','${f.id}')">✎</button>
       <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
     </div>`).join("")+`</div>`;
-  // --- General links ---
-  html += docSecHdr("lnk", "🔗 LINKS", D.links.length, !!ui.docOpen.lnk);
-  if (ui.docOpen.lnk && !D.links.length) html += `<div class="empty" style="padding:18px">No links yet — use <b>🔗 LINK</b>.</div>`;
+  // --- Saved web sources (Autofill from Link) ---
+  if (window.DOCAI && DOCAI.linkReview) html += DOCAI.linkReview.libraryHtml(_state, biz, ui);
+  // --- General links (hand-added bookmarks, unchanged) ---
+  // Renamed to Bookmarks so it is not confused with the LINK section above:
+  // these are addresses typed in by hand, with no analysis behind them.
+  html += docSecHdr("lnk", "🔖 BOOKMARKS", D.links.length, !!ui.docOpen.lnk);
+  if (ui.docOpen.lnk) html += `<div style="font-size:11px;color:#6b7a90;margin:-4px 0 8px 14px">Links you typed in by hand — no page was read and no values were taken from them.</div>`;
+  if (ui.docOpen.lnk && !D.links.length) html += `<div class="empty" style="padding:18px">No bookmarks yet — use <b>🔖 BOOKMARK</b> in the button row above.</div>`;
   else if (ui.docOpen.lnk) html += `<div class="col">`+D.links.map(l=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
       <span>🔗</span>

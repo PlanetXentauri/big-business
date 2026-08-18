@@ -1,5 +1,7 @@
 // Big Business PWA service worker — cache-first app shell, refreshed in background
-const CACHE = "bigbiz-v1";
+// Bump this whenever the app shell changes so installed/PWA users do not
+// remain on an older toolbar or an older document-ingestion engine.
+const CACHE = "bigbiz-v2-link-autofill";
 self.addEventListener("install", e => {
   e.waitUntil(caches.open(CACHE).then(c => c.addAll(["./", "./index.html", "./manifest.json", "./icon-192.png", "./icon-512.png"])));
   self.skipWaiting();

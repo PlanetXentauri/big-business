@@ -27,12 +27,16 @@
 
   /* ---------- open ---------- */
   R.open = function (proposal, ctx) {
+    var isLink = proposal.source === "link";
     R.session = {
       proposal: proposal,
+      isLink: isLink,
       ctx: ctx,                          // { state, commit, render, activeBiz }
       biz: proposal.business.business || null,
       docType: proposal.classification.typeId,
       category: proposal.classification.category,
+      siteType: isLink ? proposal.classification.typeId : null,
+      showPaste: false,
       // Only High starts ticked. Anything less has to be looked at.
       checked: proposal.candidates.reduce(function (acc, c) {
         acc[c.id] = c.confidence === "High";
@@ -82,16 +86,29 @@
     if (!s) return "";
     var p = s.proposal;
 
+    var LR = D.linkReview;
     var out = '<div class="form-panel" id="docai-review" style="gap:14px">';
-    out += header(p);
-    out += duplicates(p, s);
-    out += businessBlock(p, s);
-    out += documentBlock(p, s);
+
+    if (s.isLink && LR) {
+      out += LR.header(p);
+      out += LR.retrievalBlock(p, s);
+      out += LR.duplicates(p, s);
+      out += businessBlock(p, s);
+      out += LR.siteTypeBlock(p, s);
+    } else {
+      out += header(p);
+      out += duplicates(p, s);
+      out += businessBlock(p, s);
+      out += documentBlock(p, s);
+    }
     out += notesBlock(p);
 
     if (!p.candidates.length) {
-      out += '<div class="empty" style="padding:20px">No values could be evidenced in this document. ' +
-        'You can still file the document itself — nothing has been changed.</div>';
+      out += '<div class="empty" style="padding:20px">' +
+        (s.isLink
+          ? 'No values could be evidenced on this page. You can still save the link itself — nothing has been changed.'
+          : 'No values could be evidenced in this document. You can still file the document itself — nothing has been changed.') +
+        '</div>';
     } else {
       out += fieldsBlock(p, s);
     }
@@ -166,7 +183,7 @@
     // user is looking at — this is the mistake that is hardest to reverse.
     if (b.business && s.ctx.activeBiz && b.business !== s.ctx.activeBiz) {
       out += '<div style="font-size:13px;color:var(--amber);background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:8px 10px;margin-bottom:8px">' +
-        'This document matches <b>' + U.esc(BIZ_LABEL[b.business]) + '</b>, not the business you are viewing ' +
+        (s.isLink ? 'This page matches <b>' : 'This document matches <b>') + U.esc(BIZ_LABEL[b.business]) + '</b>, not the business you are viewing ' +
         '(' + U.esc(BIZ_LABEL[s.ctx.activeBiz]) + '). Saving will file it under the matched business.</div>';
     }
 
@@ -326,6 +343,9 @@
       }).join("") + '</div>';
     }
 
+    // where a web value came from, always visible — the source is the point
+    if (c.web && D.linkReview) out += D.linkReview.provenance(c);
+
     // evidence toggle
     out += '<div style="margin-top:6px"><span style="font-size:12px;color:#8794ab;cursor:pointer;text-decoration:underline" ' +
       'onclick="DOCAI.reviewUI.expand(\'' + c.id + '\')">' + (expanded ? "Hide" : "Show") + ' source &amp; reasoning</span></div>';
@@ -411,12 +431,15 @@
       ticked + ' value(s) ticked' +
       (replacing ? ' · <span style="color:var(--amber)">' + replacing + ' will replace an existing value</span>' : '') +
       (s.biz ? ' · filing under <b style="color:#e2e8f0">' + U.esc(BIZ_LABEL[s.biz]) + '</b>' : '') +
+      (s.isLink ? '<br>The link itself is saved as a web source either way — Save selected does both.' : '') +
       '</div>';
 
     out += '<div class="row" style="flex-wrap:wrap">' +
-      '<button class="btn btn-red" style="flex:2;min-width:150px"' + (blocked ? " disabled style=\"opacity:0.5\"" : "") +
-      ' onclick="DOCAI.reviewUI.saveSelected()">✅ SAVE SELECTED (' + ticked + ')</button>' +
-      '<button class="btn btn-ghost" style="flex:1;min-width:140px" onclick="DOCAI.reviewUI.saveDocOnly()">📂 SAVE DOCUMENT ONLY</button>' +
+      '<button class="btn btn-red" style="flex:2;min-width:150px"' + (blocked ? ' disabled' : '') +
+      ' onclick="DOCAI.reviewUI.saveSelected()">' +
+      (s.isLink ? '✅ SAVE ' + ticked + ' VALUE(S) + LINK' : '✅ SAVE SELECTED (' + ticked + ')') + '</button>' +
+      '<button class="btn btn-ghost" style="flex:1;min-width:140px" onclick="DOCAI.reviewUI.saveDocOnly()">' +
+      (s.isLink ? '🔗 SAVE LINK ONLY' : '📂 SAVE DOCUMENT ONLY') + '</button>' +
       '<button class="btn btn-ghost" style="flex:1;min-width:100px" onclick="DOCAI.reviewUI.cancel()">✕ CANCEL</button>' +
       '</div>';
 
@@ -547,10 +570,20 @@
     var s = R.session; if (!s) return;
     if (!s.biz) { s.status = "Choose the business first."; repaint(); return; }
     if (s.proposal.exactDuplicates.length && !s.duplicateChoice) {
-      s.status = "This is an exact duplicate — choose one of the duplicate options above first.";
+      s.status = s.isLink
+        ? "This link is already saved — choose one of the options above first."
+        : "This is an exact duplicate — choose one of the duplicate options above first.";
       repaint(); return;
     }
-    var decisions = {
+    var decisions = s.isLink ? {
+      biz: s.biz,
+      siteType: s.siteType,
+      siteTypeLabel: ((D.linkClassifier && D.linkClassifier.byId(s.siteType)) || {}).label,
+      category: s.category,
+      checkpoint: ((D.linkClassifier && D.linkClassifier.byId(s.siteType)) || {}).checkpoint,
+      keepText: true,
+      fields: collectFields()
+    } : {
       biz: s.biz,
       docType: s.docType,
       docTypeLabel: (CLASS.byId(s.docType) || {}).label,
@@ -560,14 +593,14 @@
     };
     s.status = "Saving…"; repaint();
 
-    TX.save(s.ctx.state, s.proposal, decisions, { commit: s.ctx.commit })
+    (s.isLink ? TX.saveLink : TX.save)(s.ctx.state, s.proposal, decisions, { commit: s.ctx.commit })
       .then(function (journal) {
         // "Saved 0 values" reads like a failure when the real reason is that
         // every conflict was resolved as "keep", so say which happened.
         var kept = decisions.fields.length - journal.fieldWrites.length;
         var msg = "✓ Saved " + journal.fieldWrites.length + " value(s) to " + BIZ_LABEL[journal.biz] +
           (kept > 0 ? " · kept " + kept + " existing value(s) and filed the new one(s) as alternates" : "") +
-          (journal.docId ? " · document filed." : ".") +
+          (journal.docId ? " · document filed." : journal.webId ? " · web source saved." : ".") +
           (journal.blobError ? " The file itself could not be stored: " + journal.blobError : "");
         R.close();
         if (s.ctx.onSaved) s.ctx.onSaved(msg);
@@ -581,6 +614,23 @@
   R.saveDocOnly = function () {
     var s = R.session; if (!s) return;
     if (!s.biz) { s.status = "Choose the business first."; repaint(); return; }
+
+    if (s.isLink) {
+      s.status = "Saving the link…"; repaint();
+      var lc = (D.linkClassifier && D.linkClassifier.byId(s.siteType)) || {};
+      TX.saveLinkOnly(s.ctx.state, s.proposal, {
+        biz: s.biz, siteType: s.siteType, siteTypeLabel: lc.label,
+        category: s.category, checkpoint: lc.checkpoint, keepText: true
+      }, { commit: s.ctx.commit })
+        .then(function (journal) {
+          var msg = "✓ Saved the link under " + BIZ_LABEL[journal.biz] + ". No field values were changed.";
+          R.close();
+          if (s.ctx.onSaved) s.ctx.onSaved(msg);
+        })
+        .catch(function (e) { s.status = "Couldn't save the link: " + e.message; repaint(); });
+      return;
+    }
+
     s.status = "Filing the document…"; repaint();
     TX.saveDocumentOnly(s.ctx.state, s.proposal, {
       biz: s.biz, docType: s.docType,

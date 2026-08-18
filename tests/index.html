@@ -30,7 +30,7 @@
 
 <h1>DOCUMENT AUTOFILL — BROWSER TESTS</h1>
 <div class="sub">The half of the suite that needs a real browser: image preprocessing, PDF.js,
-OCR, IndexedDB and network behaviour. Run <code>node tests/run-node.js</code> for the rest.</div>
+OCR, IndexedDB, live network behaviour and web-link retrieval. Run <code>node tests/run-node.js</code> for the rest.</div>
 
 <div class="note">
   Serve this over http rather than opening the file directly, so IndexedDB and PDF.js workers behave
@@ -57,6 +57,14 @@ OCR, IndexedDB and network behaviour. Run <code>node tests/run-node.js</code> fo
 <script src="../js/doc/pipeline.js"></script>
 <script src="../js/doc/transaction.js"></script>
 <script src="../js/doc/review-ui.js"></script>
+<script src="../js/doc/link-url.js"></script>
+<script src="../js/doc/link-html.js"></script>
+<script src="../js/doc/link-fetch.js"></script>
+<script src="../js/doc/link-classifier.js"></script>
+<script src="../js/doc/link-extractors.js"></script>
+<script src="../js/doc/link-store.js"></script>
+<script src="../js/doc/link-pipeline.js"></script>
+<script src="../js/doc/link-review.js"></script>
 
 <script>
 /* ---------- harness ---------- */
@@ -235,6 +243,10 @@ async function runAll() {
   await testOcrImage();
   await testScannedPdf();
   await testEndToEnd();
+  await testLinkDom();
+  await testLinkSafety();
+  await testLinkLive();
+  await testLinkEndToEnd();
   testNetwork();
 
   var s = document.getElementById("summary");
@@ -526,6 +538,189 @@ async function testEndToEnd() {
   }
 }
 
+
+/* ============================================================
+   Autofill from Link — the browser half
+   ============================================================ */
+
+function fetchFixture(name) {
+  return fetch("fixtures/" + name).then(function (r) { return r.text(); });
+}
+
+function freshLinkState() {
+  var s = freshState();
+  s.bp.centauri = { legalName: "Centauri World LLC" };
+  s.bp.keypr = { legalName: "Keypr On Company" };
+  s.docs.centauri.web = []; s.docs.keypr.web = [];
+  return s;
+}
+function linkProfiles(s) {
+  return { centauri: { bp: s.bp.centauri, fin: s.fin.centauri },
+           keypr: { bp: s.bp.keypr, fin: s.fin.keypr } };
+}
+
+/* ---------- DOMParser path ----------
+   Node exercises the string fallback; this is the path that actually runs. */
+async function testLinkDom() {
+  suite("Link — HTML read through DOMParser (the real path)");
+  ok(typeof DOMParser === "function", "DOMParser is available, so the inert-document path is used");
+
+  var html = await fetchFixture("web-official-centauri.html");
+  window.__pageScriptRan = undefined;
+  var p = DOCAI.linkHtml.parse(html, "https://centauri-world.test/");
+
+  eq(p.title, "Centauri World LLC — Official Site", "title read");
+  eq(typeof window.__pageScriptRan, "undefined", "the page's inline script did not execute");
+  eq(document.title, "Document autofill — browser tests", "…and could not rewrite this page's title");
+  ok(p.text.indexOf("Home About Contact") < 0, "nav is stripped by the DOM path");
+  ok(p.text.indexOf("This site uses cookies") < 0, "a cookie banner is stripped by class name");
+  ok(p.text.indexOf("limited liability company") >= 0, "real body text survives");
+  ok(p.text.indexOf("__pageScriptRan") < 0, "script source is not left in the text");
+  eq(p.organization.legalName, "Centauri World LLC", "JSON-LD organization read");
+
+  var hidden = DOCAI.linkHtml.parse(
+    '<html><body><p>visibletext</p><div hidden>secretone</div>' +
+    '<span aria-hidden="true">secrettwo</span></body></html>', "https://x.test/");
+  ok(hidden.text.indexOf("visibletext") >= 0, "visible text is kept");
+  ok(hidden.text.indexOf("secretone") < 0, "hidden elements are dropped");
+  ok(hidden.text.indexOf("secrettwo") < 0, "aria-hidden elements are dropped");
+}
+
+/* ---------- safety ---------- */
+async function testLinkSafety() {
+  suite("Link — remote HTML cannot act on the dashboard");
+  var hostile = await fetchFixture("web-hostile.html");
+  window.__hostileRan = undefined;
+  window.__hostileImg = undefined;
+  var before = ({}).polluted;
+
+  var p = DOCAI.linkHtml.parse(hostile, "https://hostile.test/");
+  await new Promise(function (r) { setTimeout(r, 60); });   // let any async handler try
+
+  eq(typeof window.__hostileRan, "undefined", "inline script never ran");
+  eq(typeof window.__hostileImg, "undefined", "img onerror never fired — no subresource was requested");
+  eq(({}).polluted, before, "Object.prototype was not polluted by the JSON-LD payload");
+  eq(document.querySelectorAll("iframe").length, 0, "no iframe from the page entered this document");
+  ok(p.organization && p.organization.name === "Sneaky Corp", "the safe parts of its JSON-LD still read");
+
+  suite("Link — unsafe URLs can never become clickable");
+  var el = document.createElement("div");
+  // The renderer's output is inspected here; the app renders the same string.
+  el.innerHTML = DOCAI.linkReview.linkHtml("javascript:alert(1)", "click me");
+  eq(el.querySelectorAll("a").length, 0, "a javascript: URL produces no anchor at all");
+  ok(el.textContent.indexOf("not a safe link") >= 0, "…and says why");
+
+  el.innerHTML = DOCAI.linkReview.linkHtml("https://example.test/x", "safe");
+  var a = el.querySelector("a");
+  ok(!!a, "an https URL produces an anchor");
+  eq(a.getAttribute("target"), "_blank", "…opening in a new tab");
+  ok((a.getAttribute("rel") || "").indexOf("noopener") >= 0, "…with noopener");
+  ok((a.getAttribute("rel") || "").indexOf("noreferrer") >= 0, "…and noreferrer");
+
+  suite("Link — page text is escaped, never injected");
+  window.__escapeFail = undefined;
+  el.innerHTML = DOCAI.linkReview.linkHtml("https://example.test/x",
+    '<img src=x onerror="window.__escapeFail=true">');
+  await new Promise(function (r) { setTimeout(r, 40); });
+  eq(typeof window.__escapeFail, "undefined", "markup in a page title cannot execute when displayed");
+  eq(el.querySelectorAll("img").length, 0, "…and produces no element");
+}
+
+/* ---------- live network behaviour ---------- */
+async function testLinkLive() {
+  suite("Link — a permitted page really is retrieved");
+  var st = freshLinkState();
+  // Same-origin, so the browser allows the read: this exercises the real
+  // success path rather than a stub.
+  var p = await DOCAI.linkPipeline.run(location.origin + "/tests/fixtures/web-gov-registration.html",
+    { state: st, profiles: linkProfiles(st), onStatus: function () {} });
+
+  eq(p.retrievalStatus, "retrieved", "a permitted page is retrieved");
+  eq(p.classification.typeId, "gov_registration", "…classified from its content");
+  eq(p.business.business, "centauri", "…matched to the right business");
+  var reg = p.candidates.filter(function (c) { return c.dest === "bp.stateRegNum"; })[0];
+  ok(!!reg, "…and values extracted");
+  eq(reg && reg.value, "L24000999001", "…with the right value");
+  ok(reg && reg.web.sourceUrl.indexOf("web-gov-registration.html") >= 0, "…carrying the source URL");
+  eq(p.contentHash.length, 64, "…and a content hash");
+
+  suite("Link — a cross-origin page fails honestly");
+  var blocked = await DOCAI.linkPipeline.run("https://cors-blocked.invalid/page",
+    { state: st, profiles: linkProfiles(st), onStatus: function () {}, timeoutMs: 8000 });
+  ok(blocked.retrievalStatus === "blocked" || blocked.retrievalStatus === "error",
+     "a page the browser will not let us read is reported as unread");
+  eq(blocked.candidates.length, 0, "no values are proposed for it");
+  eq(blocked.business.business, null, "no business is claimed for it");
+  ok(blocked.fallbacks.length >= 4, "safe alternatives are offered");
+  addDetail(blocked.retrievalReason);
+
+  suite("Link — pasted text works when retrieval does not");
+  var html = await fetchFixture("web-gov-registration.html");
+  var pasted = await DOCAI.linkPipeline.run("https://cors-blocked.invalid/page",
+    { state: st, profiles: linkProfiles(st), onStatus: function () {}, pastedText: html });
+  eq(pasted.retrievalStatus, "pasted", "the pasted path reports itself honestly");
+  var r2 = pasted.candidates.filter(function (c) { return c.dest === "bp.stateRegNum"; })[0];
+  ok(!!r2 && r2.value === "L24000999001", "…and extracts the same values");
+}
+
+/* ---------- end to end with real IndexedDB ---------- */
+async function testLinkEndToEnd() {
+  suite("Link end to end — analyze, review, save, open, undo (real IndexedDB)");
+  try {
+    var st = freshLinkState();
+    var url = location.origin + "/tests/fixtures/web-official-centauri.html";
+
+    var p = await DOCAI.linkPipeline.run(url, { state: st, profiles: linkProfiles(st), onStatus: function () {} });
+    eq(p.business.business, "centauri", "1. business detected from page evidence");
+    eq(p.classification.typeId, "official_site", "2. classified as the official site");
+    ok(p.candidates.length >= 4, "3. candidates produced with evidence");
+
+    var before = JSON.stringify(st);
+    eq(DOCAI.linkStore.list(st, "centauri").length, 0, "4. analysing alone saved nothing");
+    eq(Object.keys(st.bp.centauri).length, 1, "5. …and wrote no fields");
+
+    var duns = p.candidates.filter(function (c) { return c.dest === "bp.duns"; })[0];
+    var naics = p.candidates.filter(function (c) { return c.dest === "bp.naics"; })[0];
+    eq(duns && duns.confidence, "High", "6. a structured-data value rates High");
+
+    var journal = await DOCAI.transaction.saveLink(st, p, {
+      biz: "centauri",
+      siteType: p.classification.typeId,
+      siteTypeLabel: p.classification.label,
+      category: p.classification.category,
+      checkpoint: DOCAI.linkClassifier.byId(p.classification.typeId).checkpoint,
+      keepText: true,
+      fields: [
+        { dest: "bp.duns", value: duns.value, resolution: "replace" },
+        { dest: "bp.naics", value: naics.value, resolution: "replace" }
+      ]
+    }, {});
+
+    eq(st.bp.centauri.duns, "12-345-6789", "7. the saved value is written");
+    eq(st.bp.centauri.phone, undefined, "8. an unsaved value is not written");
+    eq(DOCAI.linkStore.list(st, "centauri").length, 1, "9. the link is filed under Centauri");
+    eq(DOCAI.linkStore.list(st, "keypr").length, 0, "10. and nothing reached Keypr");
+
+    var rec = DOCAI.linkStore.list(st, "centauri")[0];
+    eq(rec.linkedFields, ["bp.duns", "bp.naics"], "11. the record names the fields it supports");
+    ok(rec.linkedCheckpoints.indexOf("website") >= 0, "12. and the checkpoint its page type evidences");
+    ok(DOCAI.linkUrl.safeHref(rec.finalUrl || rec.url) !== "#", "13. the saved link is safe to open");
+
+    var stored = await DOCAI.linkStore.getText(rec.textRef);
+    ok(!!stored && stored.indexOf("limited liability company") >= 0,
+       "14. the page text is retrievable from IndexedDB");
+    ok(JSON.stringify(st).indexOf("All rights reserved") < 0,
+       "15. …and is not in application state");
+
+    var r = await DOCAI.transaction.undo(st, {});
+    ok(r.ok, "16. undo succeeds");
+    eq(JSON.stringify(st), before, "17. state restored byte-for-byte");
+    eq(await DOCAI.linkStore.getText(rec.textRef), null, "18. the stored text is cleaned up");
+  } catch (e) {
+    ok(false, "link end-to-end run", e.message + "\n" + (e.stack || ""));
+  }
+}
+
 /* ---------- network ---------- */
 function testNetwork() {
   suite("Network — documents never leave the browser");
@@ -536,14 +731,21 @@ function testNetwork() {
 
   eq(uploads.length, 0, "no request with a body was sent to any external host");
   if (external.length) {
-    addDetail("External GETs observed (library code only): " +
+    addDetail("External GETs observed (library code and requested pages): " +
       external.map(function (r) { return r.url.split("/").slice(2, 3)[0]; })
         .filter(function (v, i, a) { return a.indexOf(v) === i; }).join(", "));
   }
-  var badHosts = external.filter(function (r) {
-    return !/cdnjs\.cloudflare\.com|unpkg\.com|jsdelivr|tessdata|raw\.githubusercontent/.test(r.url);
-  });
-  eq(badHosts.length, 0, "every external request went to a known library CDN");
+  // Page retrieval legitimately GETs whatever host the user typed — that is
+  // the Autofill from Link feature. What must never happen is an upload, so
+  // the invariant is asserted on request bodies, and hosts are split into
+  // "library code" and "a page this suite explicitly asked for".
+  var LIB = /cdnjs.cloudflare.com|unpkg.com|jsdelivr|tessdata|raw.githubusercontent/;
+  var ASKED = /cors-blocked.invalid/;
+  var unexpected = external.filter(function (r) { return !LIB.test(r.url) && !ASKED.test(r.url); });
+  eq(unexpected.length, 0, "every external request was library code or a page this suite asked for");
+  if (unexpected.length) addDetail("Unexpected: " + unexpected.map(function (r) { return r.url; }).join(", "));
+  eq(netLog.filter(function (r) { return r.hasBody; }).length, 0,
+     "no request anywhere in this run carried a body");
   ok(true, "total requests observed during this run: " + netLog.length);
 }
 </script>
