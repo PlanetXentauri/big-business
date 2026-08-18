@@ -284,6 +284,7 @@
 
   function fieldRow(c, s) {
     var checked = !!s.checked[c.id];
+    var manuallyApproved = checked && c.confidence !== "High";
     var existing = R.existingValue(c.dest);
     var conflict = existing !== "";
     var resolution = s.resolutions[c.dest] || "replace";
@@ -303,6 +304,7 @@
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
       '<span style="font-size:14px;font-weight:700;color:#e2e8f0">' + U.esc(c.label) + '</span>' +
       '<span class="chip" style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '55">' + U.esc(c.confidence.toUpperCase()) + '</span>' +
+      (manuallyApproved ? '<span class="chip" style="background:rgba(16,185,129,0.14);color:var(--green);border:1px solid rgba(16,185,129,0.45)">✓ MANUALLY APPROVED</span>' : '') +
       (c.sensitive ? '<span class="chip" style="background:rgba(255,255,255,0.06);color:#94a3b8">🔒 MASKED</span>' : '') +
       (conflict ? '<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">CONFLICT</span>' : '') +
       '<span style="font-size:11px;color:#6b7a90;margin-left:auto">page ' + c.page + '</span>' +
@@ -336,11 +338,17 @@
         '</div>';
     }
 
-    // validation warnings always visible; they are the reason not to tick
+    // Validation warnings remain visible, but a reviewed warning is not a
+    // hard block. Definitively invalid candidates live in rejectedBlock and
+    // are never offered with a checkbox at all.
     if (c.validation.warnings.length) {
       out += '<div style="margin-top:6px">' + c.validation.warnings.map(function (w) {
         return '<div style="font-size:12px;color:var(--amber)">⚠ ' + U.esc(w) + '</div>';
       }).join("") + '</div>';
+    }
+    if (manuallyApproved) {
+      out += '<div style="font-size:12px;color:var(--green);margin-top:6px">✓ You reviewed and selected this ' +
+        U.esc(c.confidence) + '-confidence value. It will be saved exactly as shown when you press the final Save button.</div>';
     }
 
     // where a web value came from, always visible — the source is the point
@@ -412,6 +420,9 @@
   /* ---------- actions ---------- */
   function actions(p, s) {
     var ticked = p.candidates.filter(function (c) { return s.checked[c.id]; }).length;
+    var reviewedWarnings = p.candidates.filter(function (c) {
+      return s.checked[c.id] && c.confidence !== "High";
+    }).length;
     var replacing = p.candidates.filter(function (c) {
       return s.checked[c.id] && R.existingValue(c.dest) !== "" && s.resolutions[c.dest] === "replace";
     }).length;
@@ -424,11 +435,12 @@
     }
     if (blocked) {
       out += '<div style="font-size:13px;color:var(--amber);padding:8px 12px;background:rgba(245,158,11,0.1);border:1px solid rgba(245,158,11,0.35);border-radius:8px">' +
-        'Choose the business above before anything can be saved.</div>';
+        'Choose the destination business above to enable Save. Checked Medium and Low values are allowed; their confidence color is a warning, not a save block.</div>';
     }
 
     out += '<div style="font-size:12px;color:#8794ab">' +
       ticked + ' value(s) ticked' +
+      (reviewedWarnings ? ' · <span style="color:var(--green)">' + reviewedWarnings + ' warning value(s) manually approved</span>' : '') +
       (replacing ? ' · <span style="color:var(--amber)">' + replacing + ' will replace an existing value</span>' : '') +
       (s.biz ? ' · filing under <b style="color:#e2e8f0">' + U.esc(BIZ_LABEL[s.biz]) + '</b>' : '') +
       (s.isLink ? '<br>The link itself is saved as a web source either way — Save selected does both.' : '') +
@@ -561,7 +573,10 @@
       return {
         dest: c.dest,
         value: R.currentValue(c),
-        resolution: R.existingValue(c.dest) !== "" ? (s.resolutions[c.dest] || "keep") : "replace"
+        resolution: R.existingValue(c.dest) !== "" ? (s.resolutions[c.dest] || "keep") : "replace",
+        confidence: c.confidence,
+        manuallyApproved: c.confidence !== "High",
+        validationWarnings: ((c.validation && c.validation.warnings) || []).slice()
       };
     });
   }

@@ -83,7 +83,10 @@
           value: e.masked || e.value,
           where: e.where || "",
           source: e.source || "",
-          excerpt: String(e.excerpt || "").slice(0, S.MAX_EXCERPT)
+          excerpt: String(e.excerpt || "").slice(0, S.MAX_EXCERPT),
+          confidence: e.confidence || "",
+          manuallyApproved: !!e.manuallyApproved,
+          validationWarnings: (e.validationWarnings || []).slice(0, 10)
         };
       }),
       businessEvidence: (input.businessEvidence || []).map(function (e) {

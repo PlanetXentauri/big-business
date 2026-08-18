@@ -553,7 +553,9 @@ chain = chain.then(function () {
       category: p.classification.category,
       checkpoint: LC.byId(p.classification.typeId).checkpoint,
       fields: [
-        { dest: "bp.duns", value: candFor(p, "bp.duns").value, resolution: "replace" },
+        { dest: "bp.duns", value: candFor(p, "bp.duns").value, resolution: "replace",
+          confidence: "Low", manuallyApproved: true,
+          validationWarnings: ["Manually verified against the linked page"] },
         { dest: "bp.naics", value: candFor(p, "bp.naics").value, resolution: "replace" }
       ]
     }, {}).then(function (j) {
@@ -581,6 +583,8 @@ chain = chain.then(function () {
       eq(rec.reviewStatus, "reviewed", "review status");
       ok(rec.evidence.length === 2, "safe evidence references for each saved field");
       ok(rec.evidence[0].excerpt.length > 0, "…each with an excerpt");
+      eq(rec.evidence[0].manuallyApproved, true, "a Low-confidence link value keeps the user's manual approval");
+      eq(rec.evidence[0].confidence, "Low", "…and keeps its confidence label");
       ok(!!rec.textRef, "the page text is referenced, not embedded");
 
       suite("Page text is kept out of application state");

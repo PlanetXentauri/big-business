@@ -80,6 +80,8 @@ global.DOCAI.store = {
 var STORE_REAL = require(path.join(JS, "store.js"));
 var TX = require(path.join(JS, "transaction.js"));
 global.DOCAI.transaction = TX;
+var REVIEW = require(path.join(JS, "review-ui.js"));
+global.DOCAI.reviewUI = REVIEW;
 
 /* ---------- shared helpers ---------- */
 function pagesOf(text) { return [{ page: 1, text: text, items: [] }]; }
@@ -373,6 +375,26 @@ EXTRACT.SPECS.forEach(function (s) { if (!MAP.get(s.dest)) missing.push(s.dest);
 ["fin.card1", "fin.card2", "fin.card3"].forEach(function (d) { if (!MAP.get(d)) missing.push(d); });
 eq(missing, [], "no extractor destination is unmapped");
 
+suite("Review — Low confidence is a warning, not a save block");
+var reviewState = freshState();
+var reviewProposal = proposalFrom(fixture("articles-centauri.txt"), { profiles: profilesOf(reviewState) });
+var reviewCandidate = candFor(reviewProposal, "bp.formationDate");
+reviewCandidate.confidence = "Low";
+reviewCandidate.validation.warnings = ["Ambiguous numeric date — confirm the intended month and day"];
+REVIEW.open(reviewProposal, {
+  state: reviewState, activeBiz: "centauri",
+  commit: function () {}, render: function () {}
+});
+REVIEW.toggle(reviewCandidate.id, true);
+var reviewHtml = REVIEW.html();
+ok(reviewHtml.indexOf("MANUALLY APPROVED") >= 0,
+  "a selected Low-confidence value is visibly marked as manually approved");
+ok(reviewHtml.indexOf("It will be saved exactly as shown") >= 0,
+  "the review explains that Low confidence does not block saving");
+ok(reviewHtml.indexOf("SAVE SELECTED") >= 0 && reviewHtml.indexOf("warning value(s) manually approved") >= 0,
+  "the final Save area counts the manually selected warning value");
+REVIEW.close();
+
 /* ============================================================
    6 — transaction: save, conflicts, undo
    ============================================================ */
@@ -385,16 +407,23 @@ var chain = TX.save(s1, p1, {
   docTypeLabel: "Articles of Organization / Incorporation",
   category: "formation",
   saveDocument: true,
-  fields: [{ dest: "bp.legalName", value: "CENTAURI WORLD LLC", resolution: "replace" }]
+  fields: [
+    { dest: "bp.legalName", value: "CENTAURI WORLD LLC", resolution: "replace", confidence: "High" },
+    { dest: "bp.formationDate", value: "2024-03-07", resolution: "replace", confidence: "Low",
+      manuallyApproved: true, validationWarnings: ["Ambiguous numeric date — manually confirmed"] }
+  ]
 }, {}).then(function (j1) {
   eq(s1.bp.centauri.legalName, "CENTAURI WORLD LLC", "the ticked field is written");
+  eq(s1.bp.centauri.formationDate, "2024-03-07", "a manually approved Low-confidence value is also written");
   eq(s1.bp.centauri.stateRegNum, undefined, "an unticked field is not written");
   eq(s1.bp.keypr.legalName, undefined, "nothing is written to the other business");
   eq(s1.docs.centauri.files.length, 1, "the document is filed under the matched business");
   eq(s1.docs.keypr.files.length, 0, "…and not under the other one");
   eq(s1.docs.centauri.files[0].category, "formation", "the document carries its category");
-  eq(s1.docs.centauri.files[0].linkedFields, ["bp.legalName"], "the document records the fields it filled");
+  eq(s1.docs.centauri.files[0].linkedFields, ["bp.legalName", "bp.formationDate"], "the document records the fields it filled");
   eq(j1.checkpoints, ["entity"], "the write satisfies the entity checkpoint");
+  eq(j1.fieldWrites[1].manuallyApproved, true, "the Low-confidence approval is recorded in the transaction");
+  eq(j1.fieldWrites[1].confidence, "Low", "the saved value keeps its confidence label for audit");
   ok((s1.strengthFiles.centauri.entity || []).length === 1, "the document is attached to that checkpoint");
 
   suite("Undo restores the previous state exactly");

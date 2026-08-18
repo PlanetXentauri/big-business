@@ -35,7 +35,8 @@
        docType        confirmed document type id
        category       confirmed category id
        saveDocument   whether to keep the original file
-       fields[]       { dest, value, resolution }   — only the ones ticked
+       fields[]       { dest, value, resolution, confidence,
+                        manuallyApproved, validationWarnings } — ticked only
   */
   T.save = function (state, proposal, decisions, hooks) {
     hooks = hooks || {};
@@ -102,7 +103,10 @@
 
           journal.fieldWrites.push({
             store: dest.store, key: dest.key, dest: f.dest,
-            before: had ? before : undefined, had: had, after: f.value
+            before: had ? before : undefined, had: had, after: f.value,
+            confidence: f.confidence || "",
+            manuallyApproved: !!f.manuallyApproved,
+            validationWarnings: (f.validationWarnings || []).slice()
           });
           if (had) addHistory(state, biz, f.dest, before, proposal, "replaced", journal);
           target[dest.key] = f.value;
@@ -337,7 +341,10 @@
         }
         journal.fieldWrites.push({
           store: dest.store, key: dest.key, dest: f.dest,
-          before: had ? before : undefined, had: had, after: f.value
+          before: had ? before : undefined, had: had, after: f.value,
+          confidence: f.confidence || "",
+          manuallyApproved: !!f.manuallyApproved,
+          validationWarnings: (f.validationWarnings || []).slice()
         });
         if (had) addHistory(state, biz, f.dest, before, proposal, "replaced", journal);
         target[dest.key] = f.value;
@@ -364,7 +371,10 @@
           masked: U.isSensitive(f.dest) ? U.maskFor(f.dest, f.value) : f.value,
           where: c && c.web ? c.web.where : "",
           source: c && c.web ? c.web.source : "",
-          excerpt: c ? c.excerpt : ""
+          excerpt: c ? c.excerpt : "",
+          confidence: f.confidence || (c ? c.confidence : ""),
+          manuallyApproved: !!f.manuallyApproved,
+          validationWarnings: (f.validationWarnings || []).slice()
         };
       });
 
