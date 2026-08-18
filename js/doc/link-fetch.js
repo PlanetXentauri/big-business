@@ -97,6 +97,23 @@
       var finalUrl = res.url || norm.url;
       var redirected = !!res.redirected || (finalUrl && finalUrl !== norm.url);
 
+      // Defense in depth for an outdated service worker or hosting layer that
+      // answers a blocked third-party request with this app's own shell. Such
+      // a response is not evidence from the requested website.
+      var appOrigin = root.location && root.location.origin;
+      var requestedOrigin = "", finalOrigin = "";
+      try { requestedOrigin = new URL(norm.url).origin; } catch (ignore1) {}
+      try { finalOrigin = new URL(finalUrl).origin; } catch (ignore2) {}
+      if (appOrigin && requestedOrigin !== appOrigin && finalOrigin === appOrigin) {
+        return result({
+          finalUrl: norm.url, blocked: true,
+          reason: "This page cannot be read directly from the dashboard.",
+          detail: "The dashboard's offline cache answered instead of the requested website. " +
+            "No page information was accepted. Refresh the dashboard and use Paste Text, PDF, or Photo.",
+          fallbacks: F.FALLBACKS
+        });
+      }
+
       if (!res.ok) {
         return result({
           status: res.status, finalUrl: finalUrl, redirected: redirected,

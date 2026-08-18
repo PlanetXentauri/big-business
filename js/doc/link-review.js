@@ -54,7 +54,14 @@
       out += '<div style="font-size:15px;color:#e2e8f0;margin-top:5px;word-break:break-word">' +
         U.esc(p.title) + '</div>';
     }
-    out += '<div style="font-size:12px;margin-top:3px">' + R.linkHtml(p.finalUrl || p.url, p.finalUrl || p.url) + '</div>';
+    // The entered address remains the permanent source of record. Redirects
+    // are useful metadata, but must never replace the original clickable URL.
+    out += '<div style="font-size:11px;color:#6b7a90;margin-top:5px">ORIGINAL LINK</div>' +
+      '<div style="font-size:12px;margin-top:2px">' + R.linkHtml(p.url, p.url) + '</div>';
+    if (p.finalUrl && p.finalUrl !== p.url) {
+      out += '<div style="font-size:11px;color:#6b7a90;margin-top:5px">FINAL URL AFTER REDIRECT</div>' +
+        '<div style="font-size:12px;margin-top:2px">' + R.linkHtml(p.finalUrl, p.finalUrl) + '</div>';
+    }
 
     out += '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px">' +
       '<span class="chip" style="background:' + meta.color + '22;color:' + meta.color +
@@ -102,7 +109,7 @@
     out += fallbackRow("Open the page in a new tab",
       "Look at it yourself and copy anything useful.",
       '<button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" ' +
-      'onclick="DOCAI.linkReview.openUrl(' + jsArg(p.finalUrl || p.url) + ')">↗ OPEN</button>');
+      'onclick="DOCAI.linkReview.openUrl(' + jsArg(p.url || p.finalUrl) + ')">↗ OPEN ORIGINAL</button>');
 
     out += fallbackRow("Paste the visible page text",
       "Select the page, copy it, and paste below — it runs through exactly the same extraction.",
@@ -349,7 +356,7 @@
         '</div></div>' +
         '<div class="row" style="margin-top:8px;flex-wrap:wrap">' +
         '<button class="btn btn-ghost" style="flex:1;min-width:78px;font-size:11px;padding:5px 8px" ' +
-        'onclick="DOCAI.linkReview.openUrl(' + jsArg(r.finalUrl || r.url) + ')">↗ OPEN</button>' +
+        'onclick="DOCAI.linkReview.openUrl(' + jsArg(r.url || r.finalUrl) + ')">↗ OPEN ORIGINAL</button>' +
         '<button class="btn btn-ghost" style="flex:1;min-width:78px;font-size:11px;padding:5px 8px" ' +
         'onclick="docaiRecheckLink(' + jsArg(biz) + ',' + jsArg(r.id) + ')">🔄 RECHECK</button>' +
         '<button class="btn btn-ghost" style="flex:1;min-width:78px;font-size:11px;padding:5px 8px" ' +

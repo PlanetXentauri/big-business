@@ -371,6 +371,32 @@ chain = chain.then(function () {
 });
 
 chain = chain.then(function () {
+  suite("The app shell can never masquerade as a linked website");
+  var st = seeded();
+  global.location = { origin: "https://dashboard.test" };
+  stubFetch({
+    "sunbiz.test": {
+      body: "<html><title>Dashboard</title><body>Not the requested page</body></html>",
+      finalUrl: "https://dashboard.test/index.html",
+      redirected: true
+    }
+  });
+  return LP.run("https://sunbiz.test/entity/123", {
+    state: st, profiles: profilesOf(st), onStatus: function () {}
+  }).then(function (p) {
+    eq(p.retrievalStatus, "blocked", "a dashboard-shell response is rejected");
+    eq(p.finalUrl, "https://sunbiz.test/entity/123", "the original source URL is preserved");
+    eq(p.candidates.length, 0, "no dashboard text becomes proposed evidence");
+    ok(/offline cache/i.test(p.retrievalDetail), "the failure explains the stale-cache cause");
+    var sw = fs.readFileSync(path.join(__dirname, "..", "sw.js"), "utf8");
+    ok(/requestUrl\.origin\s*!==\s*self\.location\.origin/.test(sw),
+      "the service worker leaves every cross-origin request alone");
+    delete global.location;
+    return null;
+  });
+});
+
+chain = chain.then(function () {
   suite("Other retrieval failures");
   var st = seeded();
   return analyze("https://gone.test/x", { "gone.test": { status: 404, statusText: "Not Found", body: "" } }, st)
