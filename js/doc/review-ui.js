@@ -843,9 +843,13 @@
       docTypeLabel: (CLASS.byId(s.docType) || {}).label,
       category: s.category,
       saveDocument: !reId && s.duplicateChoice !== "meta" && s.duplicateChoice !== "link",
-      reanalyzeDocId: reId || null,
+      // An exact duplicate handled as "link to more fields" or "update
+      // metadata" is, in effect, a re-analysis of the document already on
+      // file: values cite that record and its credit data attaches to it.
+      reanalyzeDocId: reId || ((s.duplicateChoice === "link" || s.duplicateChoice === "meta") && selectedDuplicate(s) ? selectedDuplicate(s).file.id : null),
       fields: collectFields()
     };
+    if (!s.isLink && s.duplicateChoice === "meta") decisions.fields = [];
     if (s.isLink && (s.duplicateChoice === "meta" || s.duplicateChoice === "recheck")) {
       decisions.fields = [];
     }

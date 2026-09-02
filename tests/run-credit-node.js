@@ -539,6 +539,33 @@ var chain = TX.save(s1, p1s, {
   eq(CR.ensure(s9, "keypr").extended[0].effectiveDate, "2026-05-18", "…stamped with the report date");
   eq(CR.addExtended(s9, "keypr", [{ provider: "dnb", key: "k1", label: "Fact", valueText: "v2", page: 3 }], "doc-1"), 1, "a changed value is a new fact");
 
+  suite("Importing a PDF that is already on file attaches its credit data to that record");
+  var s11 = freshState();
+  var first = proposalFromPages(MAY, { profiles: profilesOf(s11), fileName: "dnb.pdf", sha256: "same-bytes" });
+  return TX.saveDocumentOnly(s11, first, { biz: "keypr", docType: "dnb_report", category: "credit" }, {}).then(function (j0) {
+    // The file was filed once by an older engine (no observations). Now it is
+    // imported again: an exact duplicate, handled as "link to more fields".
+    var again = proposalFromPages(MAY, { profiles: profilesOf(s11), fileName: "dnb.pdf", sha256: "same-bytes" });
+    again.exactDuplicates = STORE_REAL.findExact(s11, "same-bytes");
+    eq(again.exactDuplicates.length, 1, "the second import is recognised as an exact duplicate");
+    var calls = [];
+    REVIEW.open(again, { state: s11, activeBiz: "keypr", commit: function () {}, render: function () {} });
+    REVIEW.setDup("link");
+    REVIEW.checkAll(true);
+    var origSave = TX.save;
+    TX.save = function (state, proposal, decisions, hooks) { calls.push(decisions); return origSave(state, proposal, decisions, hooks); };
+    REVIEW.saveSelected();
+    TX.save = origSave;
+    return new Promise(function (r) { setTimeout(r, 50); }).then(function () {
+      eq(calls[0].reanalyzeDocId, j0.docId, "the save targets the document already on file");
+      eq(calls[0].saveDocument, false, "…and files no second copy");
+      eq(s11.docs.keypr.files.length, 1, "still one document record");
+      var mine = CR.ensure(s11, "keypr").observations.filter(function (o) { return o.source.documentId === j0.docId; });
+      ok(mine.length >= 17, "the observations cite the existing document (" + mine.length + ")");
+      eq(CR.ensure(s11, "keypr").documents[0].docId, j0.docId, "the vault lists that document");
+      eq(CR.summary(s11, "keypr", NOW).status, "established", "and the profile is ESTABLISHED");
+    });
+  }).then(function () {
   suite("Save document only still registers the report and its facts");
   var s10 = freshState();
   var p10 = proposalFromPages(MAY, { profiles: profilesOf(s10), fileName: "dnb.pdf" });
@@ -547,6 +574,7 @@ var chain = TX.save(s1, p1s, {
     eq(CR.ensure(s10, "keypr").documents.length, 1, "the document is in the vault");
     ok(CR.ensure(s10, "keypr").extended.length > 0, "its extended facts are kept");
     eq(CR.summary(s10, "keypr", NOW).status, "partial", "the profile is PARTIAL: a file exists, no usable score yet");
+  });
   });
 }).then(function () {
   console.log("\n" + "─".repeat(58));
