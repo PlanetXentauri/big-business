@@ -145,7 +145,6 @@
     options = options || {};
     var onStatus = options.onStatus || noop;
     var state = options.state;
-    var profiles = options.profiles || {};
 
     var gate = P.validateFile(file);
     if (!gate.ok) return Promise.reject(new Error(gate.error));
@@ -159,7 +158,10 @@
       kind: gate.kind,
       notes: [],
       warnings: [],
-      createdAt: Date.now()
+      createdAt: Date.now(),
+      // Re-analysis: the document is already filed; nothing new is uploaded
+      // and the review compares against what that document already saved.
+      reanalysis: options.reanalyze || null
     };
 
     onStatus("Checking the file…");
@@ -173,70 +175,113 @@
       var reader = gate.kind === "pdf" ? readPdf : gate.kind === "image" ? readImage : readText;
       return reader(file, onStatus);
     }).then(function (read) {
-      proposal.pages = read.pages;
-      proposal.pageCount = read.pages.length;
-      proposal.notes = proposal.notes.concat(read.notes || []);
-      proposal.warnings = proposal.warnings.concat(read.warnings || []);
-      proposal.quality = read.quality || null;
-
-      var fullText = read.pages.map(function (p) { return p.text; }).join("\n\n");
-      proposal.textLength = fullText.replace(/\s/g, "").length;
-
-      if (proposal.textLength < 15) {
-        proposal.warnings.push("Almost no text could be read from this file. Nothing will be proposed — the document can still be saved on its own.");
-        proposal.business = { decision: "none", business: null, confidence: "Low", evidence: [], reasons: ["No readable text to match against."], requiresManualChoice: true };
-        proposal.classification = CLASS.classify("");
-        proposal.candidates = [];
-        proposal.rejected = [];
-        proposal.likelyDuplicates = [];
-        return proposal;
-      }
-
-      onStatus("Working out which business this belongs to…");
-      proposal.business = MATCH.match(fullText, profiles);      // stage 7
-
-      onStatus("Identifying the document type…");
-      proposal.classification = CLASS.classify(fullText);        // stage 8
-
-      onStatus("Pulling out values…");
-      var groups = (proposal.classification.type.fields || []).slice();
-      // An unclassified document gets the broad sweep rather than nothing.
-      var ex = EXTRACT.extract(read.pages, { groups: groups.length ? groups : null });  // stages 9-10
-      proposal.candidates = ex.candidates.filter(function (c) { return !MAP.isInternal(c.dest); });
-      proposal.internal = ex.candidates.filter(function (c) { return MAP.isInternal(c.dest); });
-      proposal.rejected = ex.rejected;
-
-      // Stage 11-12 — destinations and category are already carried by the
-      // candidates and the classification; assemble the filing metadata.
-      var period = find(proposal.internal, "meta.statementPeriod");
-      var docDate = find(proposal.internal, "meta.documentDate");
-      var acct = find(proposal.candidates, "fin.acctNumber");
-      var card = find(proposal.candidates, "fin.card1");
-
-      proposal.meta = {
-        statementPeriod: period ? period.value : "",
-        documentDate: docDate ? docDate.value : (find(proposal.candidates, "bp.formationDate") || {}).value || "",
-        issuer: guessIssuer(fullText, proposal.classification),
-        accountLast4: acct ? (acct.validation.meta.last4 || "") : (card ? (card.validation.meta.last4 || "") : "")
-      };
-
-      // Stage 2b — likely duplicates need the classification to be meaningful.
-      proposal.likelyDuplicates = (state && proposal.business.business)
-        ? STORE.findLikely(state, {
-            biz: proposal.business.business,
-            sha256: proposal.sha256,
-            docType: proposal.classification.typeId,
-            issuer: proposal.meta.issuer,
-            statementPeriod: proposal.meta.statementPeriod,
-            documentDate: proposal.meta.documentDate,
-            accountLast4: proposal.meta.accountLast4
-          })
-        : [];
-
-      onStatus("");
-      return proposal;
+      return analyze(proposal, read, options);
     });
   };
+
+  /* Re-analyse from already-extracted pages (the stored text of a filed
+     document whose original file is no longer available). Same stages from
+     business detection onward; nothing is re-read or re-uploaded. */
+  P.runPages = function (pages, meta, options) {
+    options = options || {};
+    var proposal = {
+      id: U.uid("imp"),
+      file: null,
+      fileName: (meta && meta.name) || "document",
+      fileType: (meta && meta.type) || "",
+      fileSize: (meta && meta.size) || 0,
+      kind: "text",
+      sha256: (meta && meta.sha256) || "",
+      notes: ["Re-analysed from the stored text of the filed document — the original file was not re-read."],
+      warnings: [],
+      createdAt: Date.now(),
+      reanalysis: options.reanalyze || null,
+      exactDuplicates: (options.state && meta && meta.sha256) ? STORE.findExact(options.state, meta.sha256) : []
+    };
+    return Promise.resolve(analyze(proposal, { pages: pages || [], notes: [] }, options));
+  };
+
+  function analyze(proposal, read, options) {
+    var onStatus = options.onStatus || noop;
+    var state = options.state;
+    var profiles = options.profiles || {};
+
+    proposal.pages = read.pages;
+    proposal.pageCount = read.pages.length;
+    proposal.notes = proposal.notes.concat(read.notes || []);
+    proposal.warnings = proposal.warnings.concat(read.warnings || []);
+    proposal.quality = read.quality || null;
+
+    var fullText = read.pages.map(function (p) { return p.text; }).join("\n\n");
+    proposal.textLength = fullText.replace(/\s/g, "").length;
+
+    if (proposal.textLength < 15) {
+      proposal.warnings.push("Almost no text could be read from this file. Nothing will be proposed — the document can still be saved on its own.");
+      proposal.business = { decision: "none", business: null, confidence: "Low", evidence: [], reasons: ["No readable text to match against."], requiresManualChoice: true };
+      proposal.classification = CLASS.classify("");
+      proposal.candidates = [];
+      proposal.rejected = [];
+      proposal.likelyDuplicates = [];
+      proposal.credit = null;
+      return proposal;
+    }
+
+    onStatus("Working out which business this belongs to…");
+    proposal.business = MATCH.match(fullText, profiles);      // stage 7
+
+    onStatus("Identifying the document type…");
+    proposal.classification = CLASS.classify(fullText);        // stage 8
+
+    onStatus("Pulling out values…");
+    var groups = (proposal.classification.type.fields || []).slice();
+    // An unclassified document gets the broad sweep rather than nothing.
+    var ex = EXTRACT.extract(read.pages, { groups: groups.length ? groups : null });  // stages 9-10
+    proposal.candidates = ex.candidates.filter(function (c) { return !MAP.isInternal(c.dest); });
+    proposal.internal = ex.candidates.filter(function (c) { return MAP.isInternal(c.dest); });
+    proposal.rejected = ex.rejected;
+    // Stage 9b — a commercial credit report: provider, report date, the
+    // observations (already turned into candidates) and every extra fact
+    // the report states that has no field of its own.
+    proposal.credit = ex.credit || null;
+    if (proposal.credit) {
+      var CR = root.DOCAI && root.DOCAI.credit;
+      var pname = CR && CR.provider(proposal.credit.provider);
+      proposal.notes.push("Recognised as a " + (proposal.credit.reportLabel || (pname ? pname.label : "commercial credit") + " report") +
+        (proposal.credit.reportDate ? " prepared " + proposal.credit.reportDate : " (no report date found)") +
+        ": " + proposal.credit.observations.length + " credit metric(s) and " + (proposal.credit.extended || []).length + " extended fact(s) read.");
+      (proposal.credit.notes || []).forEach(function (n) { proposal.warnings.push(n); });
+    }
+
+    // Stage 11-12 — destinations and category are already carried by the
+    // candidates and the classification; assemble the filing metadata.
+    var period = find(proposal.internal, "meta.statementPeriod");
+    var docDate = find(proposal.internal, "meta.documentDate");
+    var acct = find(proposal.candidates, "fin.acctNumber");
+    var card = find(proposal.candidates, "fin.card1");
+
+    proposal.meta = {
+      statementPeriod: period ? period.value : "",
+      documentDate: (proposal.credit && proposal.credit.reportDate) || (docDate ? docDate.value : (find(proposal.candidates, "bp.formationDate") || {}).value || ""),
+      issuer: guessIssuer(fullText, proposal.classification),
+      accountLast4: acct ? (acct.validation.meta.last4 || "") : (card ? (card.validation.meta.last4 || "") : "")
+    };
+
+    // Stage 2b — likely duplicates need the classification to be meaningful.
+    proposal.likelyDuplicates = (state && proposal.business.business)
+      ? STORE.findLikely(state, {
+          biz: proposal.business.business,
+          sha256: proposal.sha256,
+          docType: proposal.classification.typeId,
+          issuer: proposal.meta.issuer,
+          statementPeriod: proposal.meta.statementPeriod,
+          documentDate: proposal.meta.documentDate,
+          accountLast4: proposal.meta.accountLast4
+        })
+      : [];
+
+    onStatus("");
+    return proposal;
+  }
 
   function find(list, dest) {
     for (var i = 0; i < (list || []).length; i++) if (list[i].dest === dest) return list[i];

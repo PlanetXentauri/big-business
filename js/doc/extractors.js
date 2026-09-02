@@ -214,15 +214,12 @@
       labels: ["credit limit", "total credit line", "total credit available"],
       rx: /\$?[\d,]+(?:\.\d{2})?/ },
 
-    // --- business credit scores
-    { group: "credit", dest: "fin.paydex", label: "D&B PAYDEX score", kind: "score", scoreType: "paydex",
-      labels: ["paydex score", "paydex"], rx: /\b\d{1,3}\b/ },
-    { group: "credit", dest: "fin.intelliscore", label: "Experian Intelliscore", kind: "score", scoreType: "intelliscore",
-      labels: ["intelliscore plus", "intelliscore", "experian business score"], rx: /\b\d{1,3}\b/ },
-    { group: "credit", dest: "fin.equifax", label: "Equifax Business score", kind: "score", scoreType: "equifax",
-      labels: ["business credit risk score", "equifax business score", "equifax score"], rx: /\b\d{1,3}\b/ },
-    { group: "credit", dest: "fin.fico", label: "FICO SBSS", kind: "score", scoreType: "fico",
-      labels: ["fico sbss", "sbss score", "sbss"], rx: /\b\d{1,3}\b/ },
+    // --- business credit scores: no longer label-and-number specs. A credit
+    //     report is a set of gauges on different scales, so the "credit"
+    //     group is handled by the section-aware parser in
+    //     credit-extractors.js (see creditPass below). The old specs read
+    //     the first number after "PAYDEX" — which on a real D&B report is a
+    //     neighbouring score, not the PAYDEX.
 
     // --- tradelines, processors, licences, insurance, trademarks
     { group: "tradeline", dest: "fin.tradelines", label: "Net-30 / tradeline account", kind: "freetext",
@@ -452,6 +449,54 @@
     }
   }
 
+  /* ---------- credit pass ----------
+     Commercial credit reports go through the section-aware parser, and
+     each observation it returns becomes one candidate with a "credit.*"
+     destination. The observation itself rides along on the candidate so
+     the transaction can store status, scale, risk band and provenance —
+     not just a number. */
+  function creditPass(ctx, pages) {
+    var CX = root.DOCAI && root.DOCAI.creditExtractors;
+    var CR = root.DOCAI && root.DOCAI.credit;
+    if (!CX || !CR) return null;
+    var res = CX.extract(pages, {});
+    if (!res) return null;
+    (res.rejected || []).forEach(function (r) {
+      ctx.rejected.push({ dest: CR.destFor(r.provider, r.metricType), label: r.label, raw: r.raw, page: r.page, errors: r.errors });
+    });
+    res.observations.forEach(function (o) {
+      var def = CR.metricDef(o.provider, o.metricType, o);
+      var prov = CR.provider(o.provider);
+      var display;
+      if (o.status === "available") {
+        display = CR.formatValue({ kind: def.kind, value: o.value, valueText: o.valueText, status: o.status, scaleMax: o.scaleMax });
+        if (o.riskLevel && o.kind !== "category" && def.kind !== "category") display += " · " + o.riskLevel;
+      } else {
+        display = CR.statusLabel(o.status).charAt(0) + CR.statusLabel(o.status).slice(1).toLowerCase();
+      }
+      var reasons = (o.source.reasons || []).slice();
+      if (o.source.section) reasons.unshift("Read from the section “" + o.source.section + "” on page " + o.source.page);
+      ctx.add({
+        id: U.uid("cand"),
+        dest: CR.destFor(o.provider, o.metricType),
+        label: (prov ? prov.short + " " : "") + (def.short || o.displayName || def.label),
+        kind: "credit",
+        raw: o.valueText || o.status,
+        value: display,
+        page: o.source.page || 1,
+        excerpt: o.source.evidence || "",
+        bbox: null,
+        validation: { ok: true, errors: [], warnings: [], meta: { status: o.status, scale: o.scaleMax != null ? (o.scaleMin + "–" + o.scaleMax) : "" } },
+        confidence: o.source.confidence || "Medium",
+        reasons: reasons,
+        alternates: [],
+        sensitive: false,
+        credit: o
+      });
+    });
+    return res;
+  }
+
   /* ---------- entry point ---------- */
   E.extract = function (pages, opts) {
     opts = opts || {};
@@ -481,6 +526,7 @@
     labelPass(ctx, specs);
     patternPass(ctx, specs);
     if (!groups || groups.indexOf("card") >= 0) cardPass(ctx);
+    var credit = (!groups || groups.indexOf("credit") >= 0) ? creditPass(ctx, pages) : null;
 
     // One primary per destination, the rest offered as alternates so the
     // review screen can show them instead of silently discarding them.
@@ -501,7 +547,8 @@
     return {
       candidates: out.sort(function (a, b) { return a.page - b.page || a.dest.localeCompare(b.dest); }),
       rejected: ctx.rejected,
-      text: flat.text
+      text: flat.text,
+      credit: credit
     };
   };
 

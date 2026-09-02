@@ -44,6 +44,16 @@
     if (!biz || (biz !== "centauri" && biz !== "keypr")) {
       return Promise.reject(new Error("No business was confirmed — nothing was saved."));
     }
+    var CR = root.DOCAI && root.DOCAI.credit;
+
+    // Re-analysis of a document already on file: same transaction, but the
+    // existing record is the destination — no second copy, no second blob.
+    var reanalyzeId = decisions.reanalyzeDocId || null;
+    var existingRec = null;
+    if (reanalyzeId) {
+      existingRec = ((state.docs[biz] && state.docs[biz].files) || []).filter(function (f) { return f.id === reanalyzeId; })[0] || null;
+      if (!existingRec) return Promise.reject(new Error("The document being re-analysed is no longer on file — nothing was saved."));
+    }
 
     var journal = {
       id: U.uid("tx"),
@@ -52,20 +62,25 @@
       fileName: proposal.fileName,
       fieldWrites: [],      // { store, key, dest, before, had, after }
       historyWrites: [],    // { dest, entryId }
+      creditWrites: [],     // { dest, metricKey, obsId }
+      creditBefore: undefined,
       docId: null,
       blobId: null,
       textId: null,
-      checkpoints: []
+      checkpoints: [],
+      checkpointAttachments: [],
+      docUpdatedId: null,
+      docUpdatedBefore: null
     };
 
     var fields = (decisions.fields || []).filter(function (f) {
-      return f && f.dest && !MAP.isInternal(f.dest) && String(f.value).trim() !== "";
+      return f && f.dest && !MAP.isInternal(f.dest) && (f.credit || String(f.value).trim() !== "");
     });
 
     // --- stage the document first: if the blob cannot be stored, nothing
     //     else has happened yet and the whole import can be abandoned.
-    var docId = U.uid("doc");
-    var wantDocument = decisions.saveDocument !== false;
+    var docId = reanalyzeId || U.uid("doc");
+    var wantDocument = decisions.saveDocument !== false && !reanalyzeId;
     var blobStep = wantDocument
       ? STORE.putBlob(docId, proposal.file)
           .then(function () { journal.blobId = docId; return true; })
@@ -83,10 +98,22 @@
         : Promise.resolve();
 
       return textStep.then(function () {
+        // The whole credit ledger for this business is snapshotted once, so
+        // undo can put back every observation, document and extended fact
+        // this import touches in one move.
+        if (CR && (proposal.credit || fields.some(function (f) { return f.credit; }))) {
+          journal.creditRootExisted = !!state.credit;
+          journal.creditBefore = state.credit && state.credit[biz] ? JSON.parse(JSON.stringify(state.credit[biz])) : null;
+        }
+        // Which document the observations cite: the one being filed now, the
+        // one being re-analysed, or none if the file itself is not kept.
+        var sourceDocId = (wantDocument || reanalyzeId) ? docId : null;
+
         // ---- field writes
         fields.forEach(function (f) {
           var dest = MAP.get(f.dest);
           if (!dest) return;
+          if (dest.store === "credit") { creditWrite(f, dest); return; }
           var target = storeFor(state, biz, dest.store);
           var before = target[dest.key];
           var had = before !== undefined && before !== null && String(before) !== "";
@@ -100,6 +127,7 @@
             addHistory(state, biz, f.dest, f.value, proposal, "alternate", journal);
             return;
           }
+          if (had && String(before) === String(f.value)) return;   // already on file — nothing to write
 
           journal.fieldWrites.push({
             store: dest.store, key: dest.key, dest: f.dest,
@@ -112,9 +140,71 @@
           target[dest.key] = f.value;
         });
 
+        function creditWrite(f, dest) {
+          if (!CR || !f.credit) return;
+          var input = JSON.parse(JSON.stringify(f.credit));
+          input.source = input.source || {};
+          input.source.documentId = sourceDocId;
+          input.source.fileName = proposal.fileName;
+          input.source.method = f.creditEdited ? "manual" : "auto";
+          input.importedAt = journal.at;
+          if (f.creditEdited) {
+            // A value changed in review is a manual entry: the document's own
+            // reading is kept in history under the name of the document.
+            var original = CR.buildObservation(JSON.parse(JSON.stringify(f.credit)));
+            original.source.documentId = sourceDocId; original.source.fileName = proposal.fileName;
+            original.importedAt = journal.at; original.historical = true;
+            var kept = CR.record(state, biz, original, { resolution: "historical" });
+            if (!kept.duplicate) journal.creditWrites.push({ dest: f.dest, metricKey: kept.obs.metricKey, obsId: kept.obs.id, historical: true });
+            input.value = f.creditValue != null ? f.creditValue : input.value;
+            input.valueText = f.value;
+            input.status = f.creditStatus || (input.value != null || f.value ? "available" : input.status);
+            input.note = "Edited during review; the document read " + (f.credit.valueText || f.credit.status) + ".";
+            input.source.evidence = (input.source.evidence || "") + " (edited in review)";
+          }
+          var obs = CR.buildObservation(input);
+          var res = CR.record(state, biz, obs, { resolution: f.resolution || "" });
+          if (res.duplicate) return;
+          journal.creditWrites.push({ dest: f.dest, metricKey: obs.metricKey, obsId: obs.id });
+
+          // Mirror a well-known numeric score into the legacy single-value
+          // field, through the same journal so undo restores it too.
+          var m = CR.mirrorFor(res.obs);
+          if (m) {
+            var cur = CR.current(state, biz)[obs.metricKey];
+            if (cur && cur.id === res.obs.id) {
+              var fin = storeFor(state, biz, "fin");
+              var before = fin[m.key];
+              var had = before !== undefined && before !== null && String(before) !== "";
+              if (!had || String(before) !== m.value) {
+                journal.fieldWrites.push({ store: "fin", key: m.key, dest: "fin." + m.key, before: had ? before : undefined, had: had, after: m.value, confidence: f.confidence || "", mirrorOf: obs.metricKey });
+                fin[m.key] = m.value;
+              }
+            }
+          }
+        }
+
         // ---- checkpoints satisfied by what was actually written
-        var written = journal.fieldWrites.map(function (w) { return w.dest; });
+        var written = journal.fieldWrites.map(function (w) { return w.dest; })
+          .concat(journal.creditWrites.filter(function (w) { return !w.historical; }).map(function (w) { return w.dest; }));
         journal.checkpoints = MAP.checkpointsFor(written);
+
+        // ---- the credit ledger: document + extended facts
+        var creditDoc = null;
+        if (CR && proposal.credit && (wantDocument || reanalyzeId)) {
+          var s = CR.ensure(state, biz);
+          var extendedAdded = CR.addExtended(state, biz, proposal.credit.extended, docId, proposal.credit.reportDate);
+          var fromDoc = s.observations.filter(function (o) { return o.source.documentId === docId; }).length;
+          creditDoc = CR.registerDocument(state, biz, {
+            docId: docId, fileName: proposal.fileName, provider: proposal.credit.provider,
+            reportLabel: proposal.credit.reportLabel || "", reportDate: proposal.credit.reportDate || "",
+            importedAt: existingRec ? existingRec.ts : journal.at, pageCount: proposal.pageCount,
+            metricCount: fromDoc, extendedCount: s.extended.filter(function (e) { return e.documentId === docId; }).length,
+            extractionVersion: proposal.credit.version, reanalyzedAt: reanalyzeId ? journal.at : null,
+            accountIdentifier: (proposal.credit.identifiers && proposal.credit.identifiers.duns) || ""
+          });
+          journal.creditExtendedAdded = extendedAdded;
+        }
 
         // ---- document record
         if (wantDocument) {
@@ -143,6 +233,7 @@
             }),
             textRef: journal.textId
           });
+          if (creditDoc) rec.creditExtraction = creditSummary(proposal, creditDoc);
 
           state.docs[biz] = state.docs[biz] || { files: [], links: [], dnb: [], scan: { files: [] } };
           state.docs[biz].files.unshift(rec);
@@ -159,6 +250,28 @@
               docai: true, blobId: blobStored ? docId : null, linkOf: docId
             });
           });
+        } else if (reanalyzeId && existingRec) {
+          // Enrich the existing record in place; keep its previous shape for undo.
+          journal.docUpdatedId = existingRec.id;
+          journal.docUpdatedBefore = JSON.parse(JSON.stringify(existingRec));
+          existingRec.linkedFields = unique((existingRec.linkedFields || []).concat(written));
+          existingRec.linkedCheckpoints = unique((existingRec.linkedCheckpoints || []).concat(journal.checkpoints));
+          existingRec.reanalyzedAt = journal.at;
+          existingRec.reviewStatus = "reviewed";
+          if (creditDoc) existingRec.creditExtraction = creditSummary(proposal, creditDoc);
+          if (proposal.credit && proposal.credit.reportDate && !existingRec.documentDate) existingRec.documentDate = proposal.credit.reportDate;
+          journal.checkpoints.forEach(function (cp) {
+            state.strengthFiles[biz] = state.strengthFiles[biz] || {};
+            var arr = (state.strengthFiles[biz][cp] = state.strengthFiles[biz][cp] || []);
+            if (arr.some(function (f) { return f.linkOf === existingRec.id; })) return;
+            var att = {
+              id: U.uid("skf"), name: existingRec.name, type: existingRec.type,
+              size: existingRec.size, ts: Date.now(), dataUri: null, ref: !existingRec.hasBlob,
+              docai: true, blobId: existingRec.hasBlob ? existingRec.blobId : null, linkOf: existingRec.id
+            };
+            arr.push(att);
+            journal.checkpointAttachments.push({ checkpoint: cp, id: att.id });
+          });
         }
 
         T.lastImport = journal;
@@ -167,6 +280,18 @@
       });
     });
   };
+
+  function creditSummary(proposal, creditDoc) {
+    return {
+      provider: proposal.credit.provider,
+      reportLabel: proposal.credit.reportLabel || "",
+      reportDate: proposal.credit.reportDate || "",
+      version: proposal.credit.version,
+      metricCount: creditDoc.metricCount,
+      extendedCount: creditDoc.extendedCount,
+      reanalyzedAt: creditDoc.reanalyzedAt || null
+    };
+  }
 
   /* ---------- value history ----------
      Nothing is ever destroyed by an import. A replaced value and any
@@ -215,6 +340,13 @@
       if (!list.length) delete state.docaiHistory[h.biz][h.dest];
     });
 
+    // the credit ledger, restored wholesale from its pre-import snapshot
+    if (j.creditBefore !== undefined) {
+      if (!j.creditRootExisted) delete state.credit;
+      else if (j.creditBefore === null) delete state.credit[j.biz];
+      else state.credit[j.biz] = j.creditBefore;
+    }
+
     // document record and its checkpoint attachments
     if (j.docId) {
       var files = state.docs[j.biz] && state.docs[j.biz].files;
@@ -223,6 +355,16 @@
         if (k >= 0) files.splice(k, 1);
       }
       detachCheckpoints(state, j, j.docId);
+    }
+
+    // a re-analysed document: put the record back exactly as it was
+    if (j.docUpdatedId && j.docUpdatedBefore && !j.webUpdatedId) {
+      var docs = state.docs[j.biz] && state.docs[j.biz].files;
+      if (docs) {
+        var at = docs.findIndex(function (f) { return f.id === j.docUpdatedId; });
+        if (at >= 0) docs[at] = j.docUpdatedBefore;
+      }
+      detachAddedCheckpoints(state, j);
     }
 
     // link record and its checkpoint attachments
@@ -260,12 +402,14 @@
     if (j.textId) cleanup.push(STORE.deleteText(j.textId).catch(function () {}));
 
     return Promise.all(cleanup).then(function () {
+      var credit = (j.creditWrites || []).length;
       return {
         ok: true,
         message: "Undid the import of “" + j.fileName + "” — " +
           j.fieldWrites.length + " field(s) restored" +
+          (credit ? ", " + credit + " credit observation(s) removed" : "") +
           (j.docId ? " and the document removed." : j.webId ? " and the saved link removed." :
-            j.webUpdatedId ? " and the saved link restored." : ".")
+            j.webUpdatedId ? " and the saved link restored." : j.docUpdatedId ? " and the document record restored." : ".")
       };
     });
   };
@@ -286,10 +430,11 @@
   T.describeLast = function () {
     var j = T.lastImport;
     if (!j) return "";
-    var what = j.kind === "link" ? "🔗 " : "";
+    var what = j.kind === "link" ? "🔗 " : (j.docUpdatedId && !j.webUpdatedId ? "↻ " : "");
+    var credit = (j.creditWrites || []).length;
     return what + String(j.fileName).slice(0, 60) + " → " +
       (j.biz === "centauri" ? "Centauri World LLC" : "Keypr On Company") +
-      " · " + j.fieldWrites.length + " field(s)";
+      " · " + j.fieldWrites.length + " field(s)" + (credit ? " · " + credit + " credit metric(s)" : "");
   };
 
   /* ============================================================
@@ -543,7 +688,7 @@
     var d = {};
     Object.keys(decisions || {}).forEach(function (k) { d[k] = decisions[k]; });
     d.fields = [];
-    d.saveDocument = true;
+    d.saveDocument = !d.reanalyzeDocId;
     return T.save(state, proposal, d, hooks);
   };
 

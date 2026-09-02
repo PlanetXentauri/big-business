@@ -100,7 +100,22 @@
     "meta.documentDate": { store: "meta", key: "documentDate", label: "Document date", section: "Document metadata", internal: true }
   };
 
-  M.get = function (dest) { return M.DESTINATIONS[dest] || null; };
+  /* Business-credit destinations ("credit.<provider>.<metric>") are
+     registered by credit.js from its provider registry, and any credit.*
+     destination for a known provider resolves on demand — so a metric a
+     newer parser discovers has somewhere legitimate to land without this
+     table being edited. Their store is "credit": the transaction records
+     an observation rather than writing a bare string. */
+  M.get = function (dest) {
+    if (M.DESTINATIONS[dest]) return M.DESTINATIONS[dest];
+    var CR = root.DOCAI && root.DOCAI.credit;
+    if (CR && /^credit\./.test(String(dest || ""))) return CR.dynamicDestination(dest);
+    return null;
+  };
+  M.registerCredit = function () {
+    var CR = root.DOCAI && root.DOCAI.credit;
+    if (CR) CR.registerDestinations(M);
+  };
   M.isInternal = function (dest) {
     var d = M.get(dest);
     return !!(d && d.internal);

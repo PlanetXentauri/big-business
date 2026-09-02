@@ -57,12 +57,16 @@ var MATCH = require(path.join(JS, "business-matcher.js"));
 var CLASS = require(path.join(JS, "classifier.js"));
 var EXTRACT = require(path.join(JS, "extractors.js"));
 var MAP = require(path.join(JS, "mapping.js"));
+var CREDIT = require(path.join(JS, "credit.js"));
+var CREDITX = require(path.join(JS, "credit-extractors.js"));
 
 // The modules register themselves on the shared namespace; make sure the
 // later ones can find the earlier ones exactly as they do in the browser.
 global.DOCAI = global.DOCAI || {};
 global.DOCAI.util = U; global.DOCAI.validators = V; global.DOCAI.mapping = MAP;
 global.DOCAI.businessMatcher = MATCH; global.DOCAI.classifier = CLASS; global.DOCAI.extractors = EXTRACT;
+global.DOCAI.credit = CREDIT; global.DOCAI.creditExtractors = CREDITX;
+MAP.registerCredit();
 
 /* ---------- IndexedDB stub, so the transaction layer can be tested ---------- */
 var fakeBlobs = {}, fakeText = {};
@@ -293,11 +297,16 @@ ok((candFor(pCard, "fin.card1") || {}).value.indexOf("VISA") >= 0, "card 1 keeps
 eq((candFor(pCard, "fin.cardDue") || {}).value, "2024-05-22", "payment due date");
 eq((candFor(pCard, "fin.creditLimitTotal") || {}).value, "$15,000.00", "credit limit");
 
+// Credit scores are observations on the Business Credit Profile now, one
+// candidate per provider metric, each on its own scale. The deep coverage
+// lives in tests/run-credit-node.js; this checks the labelled form still
+// lands where it should and nothing lands on the old single-value fields.
 var pCredit = proposalFrom(fixture("credit-report-centauri.txt"), { profiles: prof });
-eq((candFor(pCredit, "fin.paydex") || {}).value, "80", "PAYDEX score");
-eq((candFor(pCredit, "fin.intelliscore") || {}).value, "76", "Experian Intelliscore");
-eq((candFor(pCredit, "fin.equifax") || {}).value, "540", "Equifax business score");
-eq((candFor(pCredit, "fin.fico") || {}).value, "220", "FICO SBSS");
+eq((candFor(pCredit, "credit.dnb.paydex") || {}).credit.value, 80, "PAYDEX score becomes a D&B observation");
+eq((candFor(pCredit, "credit.experian.intelliscore_plus") || {}).credit.value, 76, "Experian Intelliscore becomes an Experian observation");
+eq((candFor(pCredit, "credit.equifax.business_credit_risk_score") || {}).credit.value, 540, "Equifax business score becomes an Equifax observation");
+eq((candFor(pCredit, "credit.fico.sbss") || {}).credit.value, 220, "FICO SBSS becomes a FICO observation");
+eq(candFor(pCredit, "fin.paydex"), null, "the legacy single-value PAYDEX field is no longer an extraction target");
 eq((candFor(pCredit, "bp.duns") || {}).value, "12-345-6789", "D-U-N-S number");
 
 suite("Anti-hallucination — invalid values are dropped, not repaired");
@@ -306,8 +315,9 @@ eq(candFor(pBad, "bp.ein"), null, "a malformed EIN produces no candidate");
 ok(!pBad.candidates.some(function (c) { return String(c.value).indexOf("990000014") >= 0; }),
   "a pattern search after a label cannot capture the next label's value");
 eq(candFor(pBad, "fin.routingNumber"), null, "a routing number failing checksum produces no candidate");
-eq(candFor(pBad, "fin.paydex"), null, "an out-of-range PAYDEX produces no candidate");
-eq(candFor(pBad, "fin.intelliscore"), null, "an out-of-range Intelliscore produces no candidate");
+eq(candFor(pBad, "credit.dnb.paydex"), null, "an out-of-range PAYDEX produces no candidate");
+eq(candFor(pBad, "credit.experian.intelliscore_plus"), null, "an out-of-range Intelliscore produces no candidate");
+ok(pBad.rejected.some(function (r) { return r.dest === "credit.dnb.paydex"; }), "…and the out-of-range PAYDEX is recorded as rejected");
 eq(candFor(pBad, "bp.phone"), null, "an invalid phone number produces no candidate");
 eq(candFor(pBad, "bp.naics"), null, "an unassigned NAICS code produces no candidate");
 eq(candFor(pBad, "bp.formationDate"), null, "an impossible date produces no candidate");

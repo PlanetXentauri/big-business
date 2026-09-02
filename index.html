@@ -142,6 +142,60 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 .grid2 { display: grid; grid-template-columns: 1fr 1fr; gap: 9px; }
 #bgCorner { position: fixed; right: 14px; bottom: 12px; z-index: 50; display: flex; gap: 6px; opacity: 0.4; transition: opacity .2s; }
 #bgCorner:hover { opacity: 1; }
+
+/* ===== Business Credit Command Center ===== */
+.cc { display: flex; flex-direction: column; gap: 10px; }
+.cc-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; align-items: flex-start;
+  padding: 12px 14px; background: rgba(31,211,238,0.05); border: 1px solid rgba(31,211,238,0.25); border-radius: 12px; }
+.cc-title { font-size: 12px; letter-spacing: 0.26em; color: var(--cyan); font-weight: 800; }
+.cc-sub { font-size: 12px; letter-spacing: 0.12em; color: #94a3b8; margin-top: 6px; display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+.cc-bureaus { font-size: 12px; color: #e2e8f0; text-align: right; line-height: 1.6; }
+.cc-stats { display: grid; grid-template-columns: repeat(5, 1fr); gap: 8px; }
+.cc-stats .stat { padding: 10px 6px; }
+.cc-stats .lbl { font-size: 10px; letter-spacing: 0.12em; }
+@media (max-width: 620px) { .cc-stats { grid-template-columns: repeat(2, 1fr); } .cc-bureaus { text-align: left; } }
+.cc-dim { font-size: 12px; color: #8794ab; }
+.cc-note { font-size: 11px; color: #6b7a90; text-align: center; }
+.cc-tabs { margin-bottom: 0; }
+.cc-block { padding: 12px 14px; }
+.cc-block-title { font-size: 11px; letter-spacing: 0.22em; color: var(--cyan); font-weight: 800; margin-bottom: 8px; }
+.cc-snap { display: grid; grid-template-columns: repeat(auto-fit, minmax(140px, 1fr)); gap: 10px; font-size: 13px; color: #cbd5e1; }
+.cc-snap-h { font-size: 10px; letter-spacing: 0.15em; color: #6b7a90; margin-bottom: 3px; }
+.cc-action, .cc-conflict { padding: 8px 0; border-top: 1px solid rgba(255,255,255,0.05); font-size: 13px; color: #e2e8f0; }
+.cc-action:first-of-type, .cc-conflict:first-of-type { border-top: none; }
+.cc-provider { border-left: 3px solid var(--cyan); }
+.cc-prov-head { display: flex; justify-content: space-between; gap: 12px; flex-wrap: wrap; font-size: 13px; }
+.cc-prov-name { font-size: 13px; letter-spacing: 0.22em; color: #e2e8f0; font-weight: 800; }
+.cc-prov-meta { font-size: 12px; color: #94a3b8; text-align: right; line-height: 1.6; }
+.cc-grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(230px, 1fr)); gap: 10px; }
+.cc-grid-3 { grid-template-columns: repeat(auto-fill, minmax(200px, 1fr)); }
+.cc-card { background: var(--panel); border: 1px solid var(--border); border-radius: 12px; padding: 11px 13px; display: flex; flex-direction: column; gap: 6px; }
+.cc-card-top { display: flex; justify-content: space-between; gap: 6px; align-items: flex-start; flex-wrap: wrap; }
+.cc-name { font-size: 11px; letter-spacing: 0.18em; color: #94a3b8; font-weight: 800; }
+.cc-value { line-height: 1; margin: 2px 0; }
+.cc-big { font-family: 'DM Mono', monospace; font-size: 30px; font-weight: 800; color: #e2e8f0; }
+.cc-scale { font-size: 14px; color: #6b7a90; font-weight: 700; }
+.cc-gauge { position: relative; height: 5px; background: rgba(255,255,255,0.06); border-radius: 3px; margin: 4px 0 10px; }
+.cc-gauge-fill { height: 100%; border-radius: 3px; }
+.cc-gauge-ends { position: absolute; top: 7px; left: 0; right: 0; display: flex; justify-content: space-between; font-size: 9px; color: #4b5563; }
+.cc-rows { display: grid; grid-template-columns: 1fr 1fr; gap: 3px 10px; font-size: 12px; }
+.cc-rows div { display: flex; justify-content: space-between; gap: 8px; }
+.cc-rows span { color: #6b7a90; } .cc-rows b { color: #e2e8f0; text-align: right; }
+.cc-src { font-size: 11px; color: #6b7a90; margin-top: 2px; }
+.cc-btns { flex-wrap: wrap; gap: 6px; }
+.cc-mini { font-size: 10px; padding: 5px 8px; letter-spacing: 0.08em; }
+.cc-panel { background: rgba(255,255,255,0.03); border: 1px solid rgba(255,255,255,0.07); border-radius: 8px; padding: 9px 11px; font-size: 12px; color: #cbd5e1; display: flex; flex-direction: column; gap: 4px; }
+.cc-quote { color: #9aa8c2; font-style: italic; }
+.cc-hist { display: flex; flex-direction: column; gap: 3px; }
+.cc-hist-row { display: flex; flex-wrap: wrap; gap: 4px 10px; align-items: center; padding: 5px 6px; border-radius: 6px; font-size: 12px; color: #cbd5e1; }
+.cc-hist-row .cc-full { flex-basis: 100%; }
+.cc-hist-row.cur { background: rgba(16,185,129,0.08); }
+.cc-hist-row b { color: #e2e8f0; }
+.cc-trend { display: flex; gap: 6px; flex-wrap: wrap; margin-bottom: 4px; }
+.cc-trend-col { min-width: 46px; text-align: center; background: rgba(255,255,255,0.03); border-radius: 6px; padding: 5px 4px; font-size: 13px; }
+.cc-mini-row { display: flex; justify-content: space-between; gap: 8px; padding: 4px 0; border-top: 1px solid rgba(255,255,255,0.05); font-size: 12px; color: #cbd5e1; }
+.cc-doc { padding: 10px 0; border-top: 1px solid rgba(255,255,255,0.06); display: flex; flex-direction: column; gap: 6px; }
+.cc-doc-head { display: flex; justify-content: space-between; gap: 10px; align-items: flex-start; font-size: 13px; }
 </style>
 <!-- Precise document autofill engine. Plain classic scripts: no build step,
      no modules, so this works from GitHub Pages and from file:// alike. -->
@@ -151,6 +205,11 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 <script src="js/doc/classifier.js"></script>
 <script src="js/doc/extractors.js"></script>
 <script src="js/doc/mapping.js"></script>
+<!-- Business Credit Profile: the provider-neutral credit ledger and the
+     section-aware credit-report parser. Loaded before extractors.js so the
+     credit destinations exist by the time anything is extracted. -->
+<script src="js/doc/credit.js"></script>
+<script src="js/doc/credit-extractors.js"></script>
 <script src="js/doc/image.js"></script>
 <script src="js/doc/pdf.js"></script>
 <script src="js/doc/ocr.js"></script>
@@ -158,6 +217,8 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 <script src="js/doc/pipeline.js"></script>
 <script src="js/doc/transaction.js"></script>
 <script src="js/doc/review-ui.js"></script>
+<!-- The Business Credit Command Center panel (dashboard-side renderer). -->
+<script src="js/credit-center.js"></script>
 <!-- Autofill from Link: website ingestion. Separate from the Apify contact
      scraper at the foot of this file — no shared code, no shared token. -->
 <script src="js/doc/link-url.js"></script>
@@ -168,6 +229,9 @@ header.app .logo-wrap { width: min(440px, 86vw); margin: 0 auto; cursor: pointer
 <script src="js/doc/link-store.js"></script>
 <script src="js/doc/link-pipeline.js"></script>
 <script src="js/doc/link-review.js"></script>
+<!-- Optional Claude engine. Off by default; see the CLAUDE ENGINE panel. -->
+<script src="js/doc/engine-schema.js"></script>
+<script src="js/doc/claude-engine.js"></script>
 <script src="js/doc/browser-helper-bridge.js"></script>
 </head>
 <body>
@@ -887,18 +951,23 @@ function rFinancials(biz) {
   ${autofillHintHTML()}
   <div style="font-size:12px;color:#8794ab;margin-bottom:12px;text-align:center">Feed it a bank statement, card statement, or credit report — or a link to a banking or processor page.</div>`;
   if (ui.afStatus && _state.activeTab==="financials") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += claudeBadgeHTML();
+  html += claudePanelHTML();
   html += docaiUndoBarHTML();
   html += webLinkPanelHTML(biz);
   html += afPanelHTML(biz, "fin");
   for (const [gid, title, fields] of FIN_GROUPS) {
     const filled = fields.filter(([k])=>fin[k]).length;
     const editing = ui.editGroup === "fin-"+gid;
-    html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled?`border-left:3px solid ${BIZ[biz].accent};`:""}">
-      <div style="display:flex;align-items:center;gap:8px;${editing||filled?"margin-bottom:10px;":""}">
+    const cs = gid==="bizcredit" ? creditSummaryFor(biz) : null;
+    html += `<div class="card" style="padding:14px 16px;margin-bottom:10px;${filled||(cs&&cs.status!=="not_started")?`border-left:3px solid ${BIZ[biz].accent};`:""}">
+      <div style="display:flex;align-items:center;gap:8px;flex-wrap:wrap;${editing||filled||cs?"margin-bottom:10px;":""}">
         <div style="font-size:12px;letter-spacing:0.22em;font-weight:800;color:${biz==="centauri"?"#1A6AE8":"var(--accent)"}">${title}</div>
         <span class="chip" style="background:rgba(255,255,255,0.05);color:${filled===fields.length?"var(--green)":"var(--muted)"};border:1px solid rgba(255,255,255,0.1)">${filled}/${fields.length}</span>
+        ${cs?`<button class="btn btn-ghost" style="font-size:11px;padding:4px 9px;border-color:rgba(31,211,238,0.4);color:var(--cyan)" onclick="openCreditCenter('${biz}')">🏛 COMMAND CENTER · ${cs.statusLabel}</button>`:""}
         <button class="btn btn-ghost" style="margin-left:auto;font-size:11px;padding:4px 9px" onclick="ui.editGroup=${editing?"null":`'fin-${gid}'`};render()">${editing?"✕ CLOSE":"✎ EDIT"}</button>
       </div>`;
+    if (cs) html += `<div style="font-size:12px;color:#8794ab;margin-bottom:${editing||filled?10:0}px">${esc(cs.line)} The fields below are the legacy single-value entries; a score imported from a report is mirrored here automatically, and every metric with its history lives in the Command Center.</div>`;
     if (editing) {
       html += `<div class="col">` + fields.map(([k,label])=>`
         <div><div style="font-size:12px;color:var(--gold);font-weight:800;letter-spacing:0.1em;margin-bottom:3px">${label.toUpperCase()}</div>
@@ -929,6 +998,15 @@ function rFinancials(biz) {
       </div>`).join("") + `</div>`;
   }
   return html;
+}
+function openCreditCenter(biz){
+  _state.activeBiz = biz; _state.activeTab = "strength";
+  ui.strengthOpen.scores = true;
+  if (window.DOCAI && DOCAI.reviewUI) DOCAI.reviewUI.close();
+  ui.afReview = false;
+  commit();
+  const el = document.getElementById("cc-anchor");
+  if (el) el.scrollIntoView({ behavior: "smooth", block: "start" });
 }
 function saveFinGroup(biz, gid){
   const fields = FIN_GROUPS.find(([g])=>g===gid)[2];
@@ -1225,6 +1303,7 @@ async function runAutofill(file, biz, mode){
       profiles: docaiProfiles(),
       onStatus: (msg) => { ui.afStatus = msg; render(); }
     });
+    await claudeEnrich(proposal, biz);      // no-op unless opted in
     ui.afStatus = null;
     DOCAI.reviewUI.lastCtx = docaiCtx();
     DOCAI.reviewUI.open(proposal, DOCAI.reviewUI.lastCtx);
@@ -1252,7 +1331,7 @@ function autofillHintHTML(){
     <b style="color:#e2e8f0">AUTOFILL FROM PHOTO</b> and <b style="color:#e2e8f0">AUTOFILL FROM PDF</b> read a file you already have.
     <b style="color:var(--accent)">ADD LINK &amp; AUTOFILL</b> reads a web page — it fills your fields
     <b style="color:#e2e8f0">and</b> saves the clickable link under this business.<br>
-    You review everything before anything saves. 🔒 It all stays on this device.<br>
+    You review everything before anything saves. ${claudePrivacyLine()}<br>
     <span style="color:#8794ab">Blocked site? Open it and use the optional <b style="color:var(--accent)">Big Business Page Helper</b>.</span>
   </div>`;
 }
@@ -1292,7 +1371,7 @@ function webLinkPanelHTML(biz){
       <button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.weblink=false;ui.webLinkError=null;render()">CANCEL</button>
     </div>
     <div style="font-size:12px;color:#9aa8c2;line-height:1.5">
-      🔒 The page is read in this browser and nothing is uploaded. No AI or scraping service is involved.<br>
+      ${claudePrivacyLine(true)}<br>
       ⚠ Browsers only let a page read another site when that site allows it. Many pages — anything behind a
       login, bot protection, or without CORS headers — cannot be read this way. When that happens you will be
       told plainly, and offered the alternatives: use the Big Business Page Helper, paste its text, or save it as a PDF.
@@ -1357,6 +1436,7 @@ async function docaiAnalyzeLink(biz, pastedText){
       pastedText: pastedText || null,
       onStatus: (msg) => { ui.afStatus = msg; render(); }
     });
+    await claudeEnrich(proposal, biz);      // no-op unless opted in
     ui.afStatus = null;
     const ctx = docaiCtx();
     // Re-running with pasted text keeps the user inside the same review.
@@ -1392,6 +1472,176 @@ async function docaiReceiveBrowserCapture(capture, error){
   ui.afStatus = "Browser helper captured “" + (capture.title || DOCAI.linkUrl.display(capture.url, 55)) + "”. Building the review…";
   render();
   await docaiAnalyzeLink(biz, DOCAI.browserHelper.toInertHtml(capture));
+}
+
+// ---------- Claude engine (opt-in second opinion) ----------
+// Off by default. When on, the extracted TEXT of a document or page is sent
+// to Anthropic's API with the user's own key. The local engine always runs
+// first and stays authoritative; this only adds or disagrees, and everything
+// still goes through the same review screen.
+function claudePanelHTML(){
+  if (!ui.showForm.claude || !window.DOCAI || !DOCAI.claudeEngine) return "";
+  const CE = DOCAI.claudeEngine;
+  const on = CE.getMode() === "opt_in";
+  const key = CE.getKey();
+
+  return `<div class="form-panel">
+    <div style="font-size:12px;letter-spacing:0.2em;color:var(--accent)">🤖 CLAUDE ENGINE — OPTIONAL</div>
+
+    <div style="font-size:13px;color:#e2e8f0;line-height:1.55">
+      By default this dashboard reads your documents <b>entirely on this device</b>. Nothing is uploaded.
+    </div>
+    <div style="background:rgba(245,158,11,0.09);border:1px solid rgba(245,158,11,0.35);border-radius:8px;padding:10px 12px">
+      <div style="font-size:12px;letter-spacing:0.15em;color:var(--amber);font-weight:800;margin-bottom:5px">IF YOU TURN THIS ON</div>
+      <div style="font-size:13px;color:#e2e8f0;line-height:1.55">
+        The <b>text</b> read out of each document or web page — and the business names, EIN,
+        D-U-N-S, addresses, phones and emails you have saved — are <b>sent to Anthropic's API</b>
+        over the internet each time you run an autofill. That is a real upload to a third party.<br><br>
+        Not sent: the original file itself, your account number in full, or anything belonging to
+        the business the source did not match.<br><br>
+        Anthropic's handling of that data is governed by their terms, not by this app.
+      </div>
+    </div>
+
+    <div class="row" style="gap:8px">
+      <button class="btn ${on?"btn-ghost":"btn-red"}" style="flex:1" onclick="setClaudeMode('off')">${on?"":"✓ "}🔒 LOCAL ONLY (DEFAULT)</button>
+      <button class="btn ${on?"btn-red":"btn-ghost"}" style="flex:1" onclick="setClaudeMode('opt_in')">${on?"✓ ":""}🤖 ALSO USE CLAUDE</button>
+    </div>
+
+    <div style="font-size:12px;letter-spacing:0.15em;color:#94a3b8;font-weight:700;margin-top:4px">YOUR ANTHROPIC API KEY</div>
+    <div style="font-size:12px;color:#8794ab;line-height:1.5">
+      Get one at console.anthropic.com. Calls are billed to your own account.
+      The key is kept in this browser's local storage <b>in plain text</b> — it is not encrypted,
+      and anyone who can use this browser profile can read it. Don't use this on a shared machine.
+    </div>
+    ${key
+      ? `<div style="display:flex;gap:8px;align-items:center;background:rgba(255,255,255,0.03);border-radius:8px;padding:8px 10px">
+          <span style="flex:1;font-size:13px;color:#e2e8f0">Key saved: <b>${esc(CE.maskKey(key))}</b></span>
+          <button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="clearClaudeKey()">🗑 REMOVE KEY</button>
+        </div>`
+      : `<input id="cl-key" type="password" autocomplete="off" spellcheck="false" placeholder="sk-ant-…">
+         <div class="row"><button class="btn btn-red" style="flex:1" onclick="saveClaudeKey()">💾 SAVE KEY</button></div>`}
+
+    ${ui.claudeMsg?`<div style="font-size:13px;color:${/^✓/.test(ui.claudeMsg)?"var(--green)":"var(--amber)"}">${esc(ui.claudeMsg)}</div>`:""}
+
+    <div style="font-size:12px;color:#8794ab;line-height:1.5;border-top:1px solid rgba(255,255,255,0.07);padding-top:8px">
+      However this is set, <b>nothing saves without your review</b>. Claude never writes to the
+      dashboard: anything it proposes is re-checked by this app's own validators first, and a value
+      that fails is dropped even if Claude was confident about it.
+    </div>
+    <div class="row"><button class="btn btn-ghost" style="flex:1" onclick="ui.showForm.claude=false;ui.claudeMsg=null;render()">CLOSE</button></div>
+  </div>`;
+}
+
+function setClaudeMode(m){
+  const CE = DOCAI.claudeEngine;
+  CE.setMode(m);
+  if (m === "opt_in" && !CE.getKey()){
+    ui.claudeMsg = "Claude is switched on, but it won't run until you save an API key below.";
+  } else if (m === "opt_in"){
+    ui.claudeMsg = "✓ Claude will now be asked for a second opinion on each autofill. Document text will be uploaded.";
+  } else {
+    ui.claudeMsg = "✓ Local only. Nothing leaves this device.";
+  }
+  render();
+}
+function saveClaudeKey(){
+  const CE = DOCAI.claudeEngine;
+  const el = document.getElementById("cl-key");
+  const k = (el ? el.value : "").trim();
+  if (!k){ ui.claudeMsg = "Paste a key first."; render(); return; }
+  if (!CE.keyLooksValid(k)){
+    ui.claudeMsg = "That doesn't look like an Anthropic key — they start with sk-ant-. Nothing was saved.";
+    render(); return;
+  }
+  if (el) el.value = "";                       // don't leave it sitting in the DOM
+  ui.claudeMsg = CE.setKey(k)
+    ? "✓ Key saved in this browser."
+    : "Couldn't save the key — this browser is blocking local storage.";
+  render();
+}
+function clearClaudeKey(){
+  DOCAI.claudeEngine.setKey("");
+  ui.claudeMsg = "✓ Key removed from this browser.";
+  render();
+}
+
+// A one-line badge next to the autofill buttons so the current mode is never
+// a surprise. This is the thing that makes the privacy state visible.
+// The privacy sentence has to tell the truth in both modes, so it is
+// generated rather than written once. `page` picks the wording for the link
+// panel, which talks about a page rather than a file.
+function claudePrivacyLine(page){
+  const on = window.DOCAI && DOCAI.claudeEngine && DOCAI.claudeEngine.enabled();
+  const what = page ? "The page is read in this browser" : "It all stays on this device";
+  if (!on){
+    return page
+      ? "🔒 The page is read in this browser and nothing is uploaded. No AI or scraping service is involved."
+      : "🔒 " + what + ".";
+  }
+  return page
+    ? "⚠ The page is read in this browser, then its <b>text is sent to Anthropic's API</b> because the " +
+      "Claude engine is switched on. No scraping service is involved."
+    : "⚠ The <b>text is sent to Anthropic's API</b> because the Claude engine is switched on.";
+}
+
+function claudeBadgeHTML(){
+  if (!window.DOCAI || !DOCAI.claudeEngine) return "";
+  const on = DOCAI.claudeEngine.enabled();
+  return `<div style="text-align:center;margin-bottom:10px">
+    <span class="chip" style="cursor:pointer;background:${on?"rgba(245,158,11,0.15)":"rgba(16,185,129,0.12)"};
+      color:${on?"var(--amber)":"var(--green)"};border:1px solid ${on?"rgba(245,158,11,0.4)":"rgba(16,185,129,0.35)"}"
+      onclick="ui.showForm.claude=!ui.showForm.claude;render()"
+      title="Click to change how documents are read">
+      ${on?"🤖 CLAUDE ENGINE ON — DOCUMENT TEXT IS UPLOADED":"🔒 LOCAL ONLY — NOTHING IS UPLOADED"} · CHANGE
+    </span>
+  </div>`;
+}
+
+// Runs after the local pipeline, before review. A failure here never blocks
+// the import — the local results stand on their own.
+async function claudeEnrich(proposal, biz){
+  const CE = window.DOCAI && DOCAI.claudeEngine;
+  if (!CE || !CE.enabled()) return null;
+  try {
+    const res = await CE.analyze(proposal, {
+      state: _state,
+      biz: biz || proposal.business.business || _state.activeBiz,
+      profiles: docaiProfiles(),
+      onStatus: (m) => { ui.afStatus = m; render(); }
+    });
+    if (!res.ok){
+      if (!res.skipped) proposal.warnings.push("Claude engine: " + res.error);
+      return null;
+    }
+    const merged = CE.merge(proposal.candidates, res.candidates);
+    proposal.candidates = merged.candidates;
+    proposal.rejected = (proposal.rejected || []).concat(res.rejected || []);
+    proposal.claude = {
+      businessDecision: res.engine.businessDecision,
+      classification: res.engine.classification,
+      added: merged.added,
+      alternates: merged.alternates,
+      usage: res.usage
+    };
+    proposal.notes.push("Claude engine: added " + merged.added + " field(s) local extraction missed" +
+      (merged.alternates ? ", and disagreed on " + merged.alternates : "") + ".");
+    // A different business verdict is worth surfacing loudly rather than
+    // quietly averaging away.
+    const localBiz = proposal.business.business;
+    const claudeBiz = res.engine.businessDecision.result;
+    if (localBiz && claudeBiz !== "ambiguous" && claudeBiz !== "no_match" && claudeBiz !== localBiz){
+      proposal.business.requiresManualChoice = true;
+      proposal.business.reasons.push("Claude read this as " +
+        (claudeBiz === "centauri" ? "Centauri World LLC" : "Keypr On Company") +
+        ", which disagrees with the local match. Confirm before saving.");
+    }
+    (res.warnings || []).forEach(w => proposal.warnings.push("Claude engine: " + w));
+    return res;
+  } catch(e){
+    proposal.warnings.push("Claude engine failed: " + e.message + ". The local results are unchanged.");
+    return null;
+  }
 }
 
 // ---------- saved web sources: recheck, edit, remove ----------
@@ -1474,7 +1724,11 @@ const STRENGTH_ITEMS = [
   ["bank","Business bank account","In the exact legal name",[["fin","bankName"],["bp","bankName"]]],
   ["card","Business credit card","At least one card reporting",[["fin","card1"],["bp","creditCards"]]],
   ["tradelines","Net-30 tradelines","3+ vendor accounts reporting (Uline, Quill, Grainger…)",[["fin","tradelines"]]],
-  ["scores","Business credit scores","PAYDEX / Intelliscore established",[["fin","paydex"],["fin","intelliscore"]]],
+  // The Business Credit Profile is satisfied by credible evidence of a
+  // commercial credit file (any recognised bureau, any usable metric), not
+  // by one particular score. DOCAI.credit.summary() decides; the legacy
+  // single-value fields still count when entered by hand.
+  ["scores","Business Credit Profile","Commercial credit file established with a recognised bureau (D&B, Experian, Equifax…)",[["fin","paydex"],["fin","intelliscore"],["fin","equifax"],["fin","fico"]]],
   ["processor","Payment processor","Stripe / PayPal / merchant account in business name",[["bp","processors"]]],
   ["license","Licenses & permits","All required local + state licenses",[["bp","licenses"]]],
   ["salestax","Sales tax permit","Resale certificate where you sell",[["bp","salesTaxPermit"]]],
@@ -1485,9 +1739,17 @@ const STRENGTH_ITEMS = [
   ["social","Online presence","Active social profiles under the business name",null],
   ["trademark","Trademark filed","Brand protection — strong credibility signal",[["bp","trademarks"]]],
 ];
+function creditSummaryFor(biz){
+  try { return (window.DOCAI && DOCAI.credit) ? DOCAI.credit.summary(_state, biz) : null; } catch(e){ console.error(e); return null; }
+}
 function strengthStatus(biz, item){
   const ov = _state.strength[biz][item[0]];
   if (ov) return { st: ov, auto: false };
+  if (item[0]==="scores"){
+    const sum = creditSummaryFor(biz);
+    if (sum && sum.complete) return { st: "done", auto: true, credit: sum };
+    if (sum && sum.status === "partial") return { st: "waiting", auto: true, credit: sum };
+  }
   const srcs = item[3];
   if (srcs){
     for (const [store,key] of srcs){
@@ -1582,15 +1844,28 @@ function rStrength(biz){
   ${autofillHintHTML()}
   <div style="font-size:12px;color:#8794ab;margin-bottom:12px;text-align:center">AUTO items below flip to done the moment their field is filled. Click any circle to override: ✓ done → ⏳ waiting → upcoming → back to AUTO.</div>`;
   if (ui.afStatus && _state.activeTab==="strength") html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += claudeBadgeHTML();
+  html += claudePanelHTML();
   html += docaiUndoBarHTML();
   html += webLinkPanelHTML(biz);
   html += afPanelHTML(biz, "bp");
   html += `<div class="col" style="gap:8px;margin-bottom:14px">` + rows.map((r,i)=>{
     const sc = STEP_COLORS[r.st] || STEP_COLORS.upcoming;
     const k = r.it[0];
-    const val = strengthVal(biz, r.it);
+    const isCredit = k==="scores";
+    const cs = isCredit ? (r.credit || creditSummaryFor(biz)) : null;
+    const val = isCredit ? "" : strengthVal(biz, r.it);
     const files = _state.strengthFiles[biz][k] || [];
     const open = !!ui.strengthOpen[k];
+    // The Business Credit Profile row states its own condition — NOT
+    // STARTED / PARTIAL / ESTABLISHED / STRONG DATA — and opens into the
+    // full Command Center rather than a single text field.
+    const creditChip = cs ? (()=>{
+      const tone = cs.status==="strong"||cs.status==="established" ? ["rgba(16,185,129,0.14)","var(--green)","rgba(16,185,129,0.45)"]
+        : cs.status==="partial" ? ["rgba(245,158,11,0.15)","var(--amber)","rgba(245,158,11,0.4)"]
+        : ["rgba(255,255,255,0.06)","#9aa8c2","rgba(255,255,255,0.12)"];
+      return `<span class="chip" style="background:${tone[0]};color:${tone[1]};border:1px solid ${tone[2]}">${cs.statusLabel}</span>`;
+    })() : "";
     let row = `<div style="background:${sc.bg};border:1px solid ${sc.border};border-radius:8px;padding:10px 14px">
       <div style="display:flex;gap:12px;align-items:flex-start">
       <div onclick="cycleStrength('${biz}','${k}')" title="Click to cycle status"
@@ -1598,17 +1873,21 @@ function rStrength(biz){
         ${r.st==="done"?"✓":i+1}</div>
       <div style="flex:1;min-width:0;cursor:pointer" onclick="ui.strengthOpen['${k}']=!ui.strengthOpen['${k}'];render()">
         <div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">
-          <span style="font-size:15px;font-weight:700;color:${r.st==='upcoming'?'#8794ab':'#e2e8f0'}">${r.it[1]}</span>
+          <span style="font-size:15px;font-weight:700;color:${r.st==='upcoming'?'#8794ab':'#e2e8f0'}">${isCredit?"🏛 ":""}${r.it[1]}</span>
+          ${creditChip}
           ${r.auto?`<span class="chip" style="background:${tcol}22;color:${tcol};border:1px solid ${tcol}44">AUTO ✓</span>`:""}
           ${r.st==="waiting"?`<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">WAITING</span>`:""}
           ${files.length?`<span class="chip" style="background:rgba(255,255,255,0.06);color:#9aa8c2;border:1px solid rgba(255,255,255,0.12)">📎 ${files.length}</span>`:""}
         </div>
-        <div style="font-size:13px;color:#8794ab;margin-top:2px">${r.it[2]}</div>
+        <div style="font-size:13px;color:#8794ab;margin-top:2px">${cs ? esc(cs.line) : r.it[2]}</div>
+        ${cs && cs.status!=="not_started" ? `<div style="font-size:11px;color:#6b7a90;margin-top:3px">${cs.bureausDetected} of ${cs.bureausTotal} major bureaus · ${cs.activeScores} active score(s)${cs.creditRecommendation?` · recommendation ${esc(cs.creditRecommendation.text)}`:""} · click to open the Command Center</div>` : ""}
         ${val?`<div style="font-size:14px;font-weight:800;color:var(--gold);margin-top:4px;word-break:break-all">${esc(val)}</div>`:""}
       </div>
       <div onclick="ui.strengthOpen['${k}']=!ui.strengthOpen['${k}'];render()" style="cursor:pointer;color:#8794ab;font-size:18px;flex-shrink:0;transform:rotate(${open?180:0}deg);transition:transform .2s">⌄</div>
       </div>`;
-    if (open){
+    if (open && isCredit){
+      row += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.07)">${creditCenterHTML(biz)}</div>`;
+    } else if (open){
       row += `<div style="margin-top:10px;padding-top:10px;border-top:1px solid rgba(255,255,255,0.07)">
         <div class="row">
           <input id="st-val-${k}" value="${esc(val)}" placeholder="Type the value here (e.g. planetxentauri@gmail.com)" style="flex:1">
@@ -1625,7 +1904,7 @@ function rStrength(biz){
         </div>`).join("") + `</div>`;
       row += `</div>`;
     }
-    return row + `</div>`;
+    return (k==="scores"?`<div id="cc-anchor"></div>`:"") + row + `</div>`;
   }).join("") + `</div>`;
   html += rDocs(biz);
   return html;
@@ -1688,6 +1967,8 @@ function rProfile(biz) {
   </div>
   ${autofillHintHTML()}`;
   if (ui.afStatus) html += `<div style="font-size:13px;color:var(--accent);margin-bottom:10px;padding:8px 12px;background:var(--accent-dim);border:1px solid var(--accent-brd);border-radius:8px">${esc(ui.afStatus)}</div>`;
+  html += claudeBadgeHTML();
+  html += claudePanelHTML();
   html += docaiUndoBarHTML();
   html += webLinkPanelHTML(biz);
   html += afPanelHTML(biz, "bp");
@@ -1851,9 +2132,11 @@ function rDocs(biz) {
               <div style="font-size:13px;color:#e2e8f0;cursor:pointer;word-break:break-word" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}</div>
               <div style="font-size:11px;color:#8794ab;margin-top:2px">${esc(f.docTypeLabel||"")}${f.issuer?` · ${esc(f.issuer)}`:""}${f.documentDate?` · ${esc(f.documentDate)}`:""}${f.pageCount?` · ${f.pageCount} page(s)`:""}</div>
               ${(f.linkedFields&&f.linkedFields.length)?`<div style="font-size:11px;color:#6b7a90;margin-top:3px">Filled ${f.linkedFields.length} field(s): ${esc(f.linkedFields.map(d=>DOCAI.mapping.label(d)).join(", "))}</div>`:`<div style="font-size:11px;color:#6b7a90;margin-top:3px">Filed on its own — no field values were taken from it.</div>`}
+              ${f.creditExtraction?`<div style="font-size:11px;color:var(--cyan);margin-top:3px">🏛 Credit report · ${f.creditExtraction.metricCount} metric(s) on the Business Credit Profile · parser v${esc(String(f.creditExtraction.version||"?"))}${f.reanalyzedAt?" · re-analysed":""}</div>`:""}
               ${f.hasBlob===false?`<div style="font-size:11px;color:var(--amber);margin-top:3px">The file itself could not be stored — this is a record only.</div>`:""}
             </div>
             <span style="font-size:11px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)}</span>
+            ${(f.hasBlob||f.textRef)?`<button class="del-x" title="Re-analyze with the newest parser (no duplicate is created)" onclick="docaiReanalyze('${biz}','${f.id}')">↻</button>`:""}
             <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
           </div>`).join("")
           + `</div>`;
@@ -1974,6 +2257,7 @@ function renameDocFile(biz,id){
 }
 function delDocFile(biz,id){
   const f=_state.docs[biz].files.find(x=>x.id===id);
+  if (f && f.creditExtraction && !confirm("This is a credit report on the Business Credit Profile. Deleting the file keeps the credit observations it recorded, but their VIEW SOURCE will no longer be able to open the PDF. Delete it?")) return;
   _state.docs[biz].files=_state.docs[biz].files.filter(x=>x.id!==id);
   // Drop the stored blob and its extracted text alongside the record.
   if (f && f.blobId && window.DOCAI){

@@ -15,6 +15,7 @@
 
   var D = root.DOCAI || {};
   var U = D.util, MAP = D.mapping, CLASS = D.classifier, STORE = D.store, TX = D.transaction;
+  var CR = D.credit;
 
   var R = {};
 
@@ -56,11 +57,58 @@
       status: ""
     };
     // Pre-resolve conflicts to "keep" so an unattended save can never
-    // overwrite: replacing is always something the user turns on.
+    // overwrite: replacing is always something the user turns on. Credit
+    // observations are the exception by design — they are never overwritten,
+    // so the report dates decide and the default only needs a person when
+    // the dates cannot.
     proposal.candidates.forEach(function (c) {
-      if (R.existingValue(c.dest) !== "") R.session.resolutions[c.dest] = "keep";
+      if (c.credit) {
+        var cmp = R.creditCompare(c);
+        if (cmp.relation !== "new") R.session.resolutions[c.dest] = cmp.defaultResolution;
+      } else if (R.existingValue(c.dest) !== "") {
+        R.session.resolutions[c.dest] = "keep";
+      }
     });
+    // Re-analysis: mark each candidate against what this document already
+    // saved, and start with only the genuinely new or changed ones ticked.
+    if (proposal.reanalysis) {
+      proposal.candidates.forEach(function (c) {
+        c.reanalysis = R.reanalysisState(c);
+        R.session.checked[c.id] = c.confidence === "High" && c.reanalysis !== "same";
+      });
+    }
     return R.session;
+  };
+
+  /* The current observation this candidate would sit beside, if any. */
+  R.existingCredit = function (dest) {
+    var s = R.session;
+    if (!s || !s.biz || !CR) return null;
+    var p = CR.parseDest(dest);
+    if (!p) return null;
+    return CR.current(s.ctx.state, s.biz)[CR.key(p.provider, p.metricType)] || null;
+  };
+  R.creditCompare = function (c) {
+    if (!CR || !c.credit) return { relation: "new", defaultResolution: "alternate", ambiguous: false };
+    var existing = R.existingCredit(c.dest);
+    var incoming = { effectiveDate: c.credit.effectiveDate || "", valueText: c.credit.valueText || "", status: c.credit.status };
+    return CR.compare(existing, incoming);
+  };
+
+  /* For a re-analysis: has this document already saved this value? */
+  R.reanalysisState = function (c) {
+    var s = R.session;
+    var docId = s.proposal.reanalysis && s.proposal.reanalysis.docId;
+    if (!docId) return "new";
+    if (c.credit && CR) {
+      var ledger = CR.ensure(s.ctx.state, s.biz);
+      var mine = ledger.observations.filter(function (o) { return o.source.documentId === docId && o.metricKey === CR.key(c.credit.provider, c.credit.metricType); });
+      if (!mine.length) return "new";
+      return mine.some(function (o) { return o.valueText === (c.credit.valueText || "") && o.status === c.credit.status; }) ? "same" : "differs";
+    }
+    var rec = s.proposal.reanalysis.record || {};
+    if ((rec.linkedFields || []).indexOf(c.dest) < 0) return "new";
+    return R.existingValue(c.dest) === String(c.value) ? "same" : "differs";
   };
 
   R.close = function () {
@@ -76,6 +124,13 @@
     if (!s || !s.biz) return "";
     var d = MAP.get(dest);
     if (!d || d.internal) return "";
+    if (d.store === "credit") {
+      var cur = R.existingCredit(dest);
+      if (!cur) return "";
+      return cur.status === "available" || cur.source.method === "manual"
+        ? CR.formatValue(cur) + (cur.riskLevel && cur.kind !== "category" ? " · " + cur.riskLevel : "")
+        : CR.statusLabel(cur.status);
+    }
     var store = d.store === "fin" ? s.ctx.state.fin[s.biz] : s.ctx.state.bp[s.biz];
     var v = store && store[d.key];
     return v == null ? "" : String(v);
@@ -108,6 +163,7 @@
       out += documentBlock(p, s);
     }
     out += notesBlock(p);
+    out += creditBlock(p, s);
 
     if (!p.candidates.length) {
       out += '<div class="empty" style="padding:20px">' +
@@ -119,6 +175,7 @@
       out += fieldsBlock(p, s);
     }
 
+    out += extendedBlock(p, s);
     out += rejectedBlock(p, s);
     out += actions(p, s);
     out += '</div>';
@@ -126,16 +183,65 @@
   };
 
   function header(p) {
+    var re = p.reanalysis;
     return '<div style="display:flex;align-items:flex-start;gap:12px;flex-wrap:wrap">' +
       '<div style="flex:1;min-width:200px">' +
-      '<div style="font-size:12px;letter-spacing:0.2em;color:var(--accent);font-weight:700">REVIEW IMPORT — NOTHING IS SAVED YET</div>' +
+      '<div style="font-size:12px;letter-spacing:0.2em;color:var(--accent);font-weight:700">' +
+      (re ? 'RE-ANALYSIS — NOTHING IS SAVED YET' : 'REVIEW IMPORT — NOTHING IS SAVED YET') + '</div>' +
       '<div style="font-size:15px;color:#e2e8f0;margin-top:4px;word-break:break-all">' + U.esc(p.fileName) + '</div>' +
       '<div style="font-size:12px;color:#8794ab;margin-top:2px">' +
-      fmtSize(p.fileSize) + ' · ' + p.pageCount + ' page(s) · SHA-256 ' + U.esc(p.sha256.slice(0, 12)) + '…' +
+      fmtSize(p.fileSize) + ' · ' + p.pageCount + ' page(s)' + (p.sha256 ? ' · SHA-256 ' + U.esc(p.sha256.slice(0, 12)) + '…' : '') +
       '</div></div>' +
-      '<button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="DOCAI.reviewUI.preview()">👁 OPEN ORIGINAL</button>' +
+      (p.file ? '<button class="btn btn-ghost" style="font-size:11px;padding:5px 10px" onclick="DOCAI.reviewUI.preview()">👁 OPEN ORIGINAL</button>' : '') +
       '</div>' +
+      (re ? '<div class="card" style="padding:12px 16px;border-left:3px solid var(--cyan);background:rgba(31,211,238,0.06)">' +
+        '<div style="font-size:12px;letter-spacing:0.18em;color:var(--cyan);font-weight:800;margin-bottom:4px">↻ RUNNING THE NEWEST PARSER OVER A DOCUMENT ALREADY ON FILE</div>' +
+        '<div style="font-size:13px;color:#e2e8f0">The original file and everything it already saved are kept. Each value below is marked ' +
+        '<b>NEW</b>, <b>SAME AS SAVED</b> or <b>DIFFERS</b> against what this document recorded before. Only what you tick is added; nothing is replaced silently.</div>' +
+        '</div>' : '') +
       '<div id="docai-preview"></div>';
+  }
+
+  /* ---------- the credit report summary ---------- */
+  function creditBlock(p, s) {
+    var c = p.credit;
+    if (!c || !CR) return "";
+    var prov = CR.provider(c.provider);
+    var counted = c.observations.filter(function (o) { return CR.metricDef(o.provider, o.metricType, o).counted; });
+    var available = counted.filter(function (o) { return o.status === "available"; });
+    var dna = counted.filter(function (o) { return o.status === "data_not_available"; });
+    return '<div class="card" style="padding:14px 16px;border-left:3px solid var(--cyan)">' +
+      '<div style="font-size:12px;letter-spacing:0.18em;color:var(--cyan);font-weight:800;margin-bottom:6px">🏛 COMMERCIAL CREDIT REPORT DETECTED</div>' +
+      '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(130px,1fr));gap:8px;font-size:13px">' +
+      cell("PROVIDER", prov ? prov.label : U.esc(c.provider || "unknown")) +
+      cell("REPORT PREPARED", c.reportDate ? CR.fmtDate(c.reportDate) : "not found") +
+      cell("IMPORTED", new Date().toLocaleDateString("en-US", { month: "short", day: "numeric", year: "numeric" })) +
+      cell("CREDIT METRICS", counted.length + " read · " + available.length + " with a value · " + dna.length + " reported unavailable") +
+      cell("EXTRA FACTS", (c.extended || []).length + " kept with the document") +
+      (c.identifiers && c.identifiers.duns ? cell(prov && prov.identifierLabel ? prov.identifierLabel : "IDENTIFIER", "•••••" + U.esc(c.identifiers.duns.slice(-4))) : "") +
+      '</div>' +
+      '<div style="font-size:12px;color:#8794ab;margin-top:8px">Each metric keeps its own scale and status. A metric the report marks “data not available” is saved as exactly that — ' +
+      'it is not a zero, and no neighbouring number is borrowed for it. The report date and the import date are stored separately.</div>' +
+      '</div>';
+  }
+  function cell(label, value) {
+    return '<div><div style="font-size:10px;letter-spacing:0.15em;color:#6b7a90">' + label + '</div><div style="color:#e2e8f0">' + value + '</div></div>';
+  }
+
+  /* ---------- facts with no field of their own ---------- */
+  function extendedBlock(p, s) {
+    var c = p.credit;
+    if (!c || !c.extended || !c.extended.length) return "";
+    return '<details style="background:rgba(31,211,238,0.04);border:1px solid rgba(31,211,238,0.22);border-radius:8px;padding:8px 12px">' +
+      '<summary style="cursor:pointer;font-size:12px;letter-spacing:0.15em;color:var(--cyan);font-weight:700">' +
+      'ALSO RECORDED FROM THIS REPORT (' + c.extended.length + ') — KEPT WITH THE DOCUMENT, NO FIELD NEEDED</summary>' +
+      '<div class="col" style="gap:4px;margin-top:8px">' +
+      c.extended.map(function (e) {
+        return '<div style="font-size:12px;color:#9aa8c2"><b style="color:#e2e8f0">' + U.esc(e.label) + '</b>: ' + U.esc(e.valueText) +
+          ' <span style="color:#6b7a90">(page ' + e.page + (e.section ? ' · ' + U.esc(e.section) : '') + ')</span></div>';
+      }).join("") +
+      '<div style="font-size:11px;color:#6b7a90;margin-top:6px">These are stored so the profile can grow later without this report being uploaded again. They are saved whenever the document is.</div>' +
+      '</div></details>';
   }
 
   function fmtSize(n) {
@@ -145,7 +251,12 @@
   /* ---------- duplicates ---------- */
   function duplicates(p, s) {
     var out = "";
-    if (p.exactDuplicates && p.exactDuplicates.length) {
+    // A re-analysis is, by definition, the same file as the record it
+    // re-reads; that is the point, not a duplicate to warn about.
+    var re = p.reanalysis && p.reanalysis.docId;
+    var exact = (p.exactDuplicates || []).filter(function (d) { return !re || d.file.id !== re; });
+    if (re && !exact.length) return "";
+    if (exact.length) {
       var d = p.exactDuplicates[0];
       out += '<div class="card" style="padding:14px 16px;border-left:3px solid #ef4444;background:rgba(239,68,68,0.07)">' +
         '<div style="font-size:12px;letter-spacing:0.18em;color:#ef4444;font-weight:800;margin-bottom:6px">⚠ EXACT DUPLICATE</div>' +
@@ -288,16 +399,26 @@
     return out + '</div>';
   }
 
+  var REANALYSIS_CHIP = {
+    "new": '<span class="chip" style="background:rgba(31,211,238,0.14);color:var(--cyan);border:1px solid rgba(31,211,238,0.4)">NEW</span>',
+    same: '<span class="chip" style="background:rgba(255,255,255,0.06);color:#94a3b8;border:1px solid rgba(255,255,255,0.12)">SAME AS SAVED</span>',
+    differs: '<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">DIFFERS FROM SAVED</span>'
+  };
+
   function fieldRow(c, s) {
     var checked = !!s.checked[c.id];
     var manuallyApproved = checked && c.confidence !== "High";
     var existing = R.existingValue(c.dest);
     var conflict = existing !== "";
-    var resolution = s.resolutions[c.dest] || "replace";
+    var isCredit = !!c.credit && !!CR;
+    var cmp = isCredit ? R.creditCompare(c) : null;
+    var resolution = s.resolutions[c.dest] || (isCredit ? "alternate" : "replace");
     var value = R.currentValue(c);
     var expanded = !!s.expanded[c.id];
     var color = CONF_COLOR[c.confidence] || "#8794ab";
     var shown = c.sensitive ? U.maskFor(c.dest, value) : value;
+    var status = isCredit ? c.credit.status : "";
+    var statusTone = status === "available" ? "var(--green)" : (status === "data_not_available" || status === "not_reported") ? "#94a3b8" : "var(--amber)";
 
     var out = '<div class="card" style="padding:12px 14px;margin-bottom:8px;border-left:3px solid ' +
       (checked ? color : "rgba(255,255,255,0.08)") + '">';
@@ -310,25 +431,48 @@
       '<div style="display:flex;gap:8px;align-items:center;flex-wrap:wrap">' +
       '<span style="font-size:14px;font-weight:700;color:#e2e8f0">' + U.esc(c.label) + '</span>' +
       '<span class="chip" style="background:' + color + '22;color:' + color + ';border:1px solid ' + color + '55">' + U.esc(c.confidence.toUpperCase()) + '</span>' +
+      (isCredit ? '<span class="chip" style="background:' + statusTone + '22;color:' + statusTone + ';border:1px solid ' + statusTone + '55">' + U.esc(CR.statusLabel(status)) + '</span>' : '') +
       (manuallyApproved ? '<span class="chip" style="background:rgba(16,185,129,0.14);color:var(--green);border:1px solid rgba(16,185,129,0.45)">✓ MANUALLY APPROVED</span>' : '') +
       (c.sensitive ? '<span class="chip" style="background:rgba(255,255,255,0.06);color:#94a3b8">🔒 MASKED</span>' : '') +
-      (conflict ? '<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">CONFLICT</span>' : '') +
+      (conflict && (!isCredit || cmp.ambiguous) ? '<span class="chip" style="background:rgba(245,158,11,0.15);color:var(--amber);border:1px solid rgba(245,158,11,0.4)">CONFLICT</span>' : '') +
+      (c.reanalysis ? REANALYSIS_CHIP[c.reanalysis] || '' : '') +
       '<span style="font-size:11px;color:#6b7a90;margin-left:auto">page ' + c.page + '</span>' +
       '</div>' +
       '<div style="font-size:11px;color:#6b7a90;margin-top:2px">→ ' + U.esc(MAP.section(c.dest)) + ' · ' + U.esc(MAP.label(c.dest)) + '</div>';
 
     // value editor
-    out += '<div class="row" style="margin-top:6px">' +
-      '<input id="dv-' + c.id + '" value="' + U.esc(value) + '" ' +
-      'oninput="DOCAI.reviewUI.edit(\'' + c.id + '\',this.value)" style="flex:1">' +
-      '</div>';
+    if (isCredit) {
+      out += creditValueBlock(c, s, value);
+    } else {
+      out += '<div class="row" style="margin-top:6px">' +
+        '<input id="dv-' + c.id + '" value="' + U.esc(value) + '" ' +
+        'oninput="DOCAI.reviewUI.edit(\'' + c.id + '\',this.value)" style="flex:1">' +
+        '</div>';
+    }
     if (c.sensitive) {
       out += '<div style="font-size:11px;color:#6b7a90;margin-top:3px">Shown in full here so you can check it. Stored intact, displayed as ' +
         U.esc(shown) + ' everywhere else.</div>';
     }
 
     // conflict resolution
-    if (conflict) {
+    if (conflict && isCredit) {
+      var cur = R.existingCredit(c.dest);
+      var tone = cmp.ambiguous ? "var(--amber)" : "var(--cyan)";
+      out += '<div style="margin-top:8px;background:' + (cmp.ambiguous ? 'rgba(245,158,11,0.07)' : 'rgba(31,211,238,0.05)') + ';border:1px solid ' + (cmp.ambiguous ? 'rgba(245,158,11,0.28)' : 'rgba(31,211,238,0.25)') + ';border-radius:8px;padding:9px 11px">' +
+        '<div style="font-size:12px;color:' + tone + ';font-weight:700;margin-bottom:6px">' +
+        (cmp.ambiguous ? '⚠ THIS METRIC ALREADY HAS A VALUE — THE DATES CANNOT DECIDE' : 'THIS METRIC ALREADY HAS A VALUE') + '</div>' +
+        '<div style="display:grid;grid-template-columns:1fr 1fr;gap:8px;font-size:13px">' +
+        '<div><div style="font-size:11px;color:#6b7a90">CURRENT' + (cur && cur.effectiveDate ? ' · report ' + U.esc(CR.fmtDate(cur.effectiveDate)) : ' · no report date') + '</div><div style="color:#e2e8f0;word-break:break-word">' + U.esc(existing) + '</div></div>' +
+        '<div><div style="font-size:11px;color:#6b7a90">THIS DOCUMENT' + (c.credit.effectiveDate ? ' · report ' + U.esc(CR.fmtDate(c.credit.effectiveDate)) : ' · no report date') + '</div><div style="color:var(--gold);word-break:break-word">' + U.esc(value) + '</div></div>' +
+        '</div><div class="row" style="margin-top:8px;flex-wrap:wrap">' +
+        resButton(c, "keep", "KEEP CURRENT", resolution) +
+        resButton(c, "replace", "USE NEW", resolution) +
+        resButton(c, "alternate", "KEEP BOTH", resolution) +
+        resButton(c, "historical", "ADD AS HISTORICAL", resolution) +
+        '</div>' +
+        '<div style="font-size:11px;color:#6b7a90;margin-top:6px">' + U.esc(creditResHint(resolution, cmp, cur, c)) + '</div>' +
+        '</div>';
+    } else if (conflict) {
       var existingShown = c.sensitive ? U.maskFor(c.dest, existing) : existing;
       out += '<div style="margin-top:8px;background:rgba(245,158,11,0.07);border:1px solid rgba(245,158,11,0.28);border-radius:8px;padding:9px 11px">' +
         '<div style="font-size:12px;color:var(--amber);font-weight:700;margin-bottom:6px">THIS FIELD ALREADY HAS A VALUE</div>' +
@@ -366,7 +510,8 @@
 
     if (expanded) {
       out += '<div style="margin-top:6px;background:rgba(255,255,255,0.03);border-radius:8px;padding:9px 11px">' +
-        '<div style="font-size:11px;color:#6b7a90;margin-bottom:3px">FROM ' + U.esc(s.proposal.fileName) + ', PAGE ' + c.page + '</div>' +
+        '<div style="font-size:11px;color:#6b7a90;margin-bottom:3px">FROM ' + U.esc(s.proposal.fileName) + ', PAGE ' + c.page +
+        (c.credit && c.credit.source && c.credit.source.section ? ' · ' + U.esc(c.credit.source.section.toUpperCase()) : '') + '</div>' +
         '<div style="font-size:12px;color:#9aa8c2;font-style:italic">“' + U.esc(c.excerpt) + '”</div>' +
         (c.bbox ? '<div style="font-size:11px;color:#6b7a90;margin-top:4px">Located at x' + Math.round(c.bbox.x) + ', y' + Math.round(c.bbox.y) +
           ' on the page <span style="cursor:pointer;text-decoration:underline" onclick="DOCAI.reviewUI.showRegion(\'' + c.id + '\')">— highlight it</span></div>' : '') +
@@ -407,6 +552,57 @@
       alternate: "The current value stays and the new one is kept alongside it as an alternate."
     }[r] || "";
   }
+  function creditResHint(r, cmp, cur, c) {
+    var newer = cmp.relation === "newer", older = cmp.relation === "older";
+    if (r === "keep") return "The current value stays current. This document's reading is stored in the metric's history so nothing is lost.";
+    if (r === "replace") return "This document's reading becomes the current value regardless of dates. The current value stays in history.";
+    if (r === "historical") return "Stored as a past observation only; the current value is unchanged.";
+    if (newer) return "Both are kept. This report is dated later (" + CR.fmtDate(c.credit.effectiveDate) + "), so it becomes the current value and " + CR.fmtDate(cur.effectiveDate) + " moves to history.";
+    if (older) return "Both are kept. This report is older, so it goes into history and the current value is unchanged.";
+    if (cmp.relation === "same") return "Both are kept. Same report date and same value — this confirms the current reading.";
+    return "Both are kept, but the dates cannot decide which is current: choose KEEP CURRENT or USE NEW.";
+  }
+
+  /* ---------- credit metric editor ----------
+     Shows the observation as the report gave it: value on its own scale,
+     status, risk band, supporting figures, and the two dates. Score values
+     can be corrected here; a correction is saved as a MANUAL observation
+     and the document's own reading goes to history. */
+  function creditValueBlock(c, s, value) {
+    var o = c.credit;
+    var def = CR.metricDef(o.provider, o.metricType, o);
+    var editable = def.kind === "score" || def.kind === "count" || def.kind === "currency" || def.kind === "percent" || def.kind === "rating" || def.kind === "category";
+    var d = o.details || {};
+    var out = '<div style="margin-top:6px;display:flex;gap:10px;align-items:center;flex-wrap:wrap">' +
+      '<div style="font-size:22px;font-weight:800;color:' + (o.status === "available" ? "#e2e8f0" : "#8794ab") + '">' + U.esc(value) + '</div>' +
+      (o.scaleMax != null && o.status === "available" ? '<span style="font-size:11px;color:#6b7a90">scale ' + o.scaleMin + '–' + o.scaleMax + (o.higherIsBetter === false ? ' (lower is better)' : '') + '</span>' : '') +
+      (o.riskLevel && def.kind !== "category" ? '<span class="chip" style="background:rgba(245,158,11,0.12);color:var(--amber);border:1px solid rgba(245,158,11,0.35)">' + U.esc(o.riskLevel.toUpperCase()) + ' RISK</span>' : '') +
+      '</div>';
+    var rows = [];
+    if (d.rawScore != null) rows.push(["Raw score", d.rawScore]);
+    if (d.class != null) rows.push(["Class", d.class]);
+    if (d.probability) rows.push(["Probability", d.probability]);
+    if (d.industryAverage) rows.push(["Industry avg", d.industryAverage]);
+    if (d.current !== undefined && o.metricType === "dnb_rating") { rows.push(["Current", d.current || "—"]); if (d.asOf) rows.push(["As of", CR.fmtDate(d.asOf)]); if (d.previous) rows.push(["Previous", d.previous + (d.previousAsOf ? " (" + CR.fmtDate(d.previousAsOf) + ")" : "")]); }
+    if (d.basis) rows.push(["Basis", d.basis]);
+    if (d.period) rows.push(["Period", d.period]);
+    if (rows.length) {
+      out += '<div style="display:grid;grid-template-columns:repeat(auto-fit,minmax(120px,1fr));gap:6px;margin-top:6px;font-size:12px">' +
+        rows.map(function (r) { return '<div><span style="color:#6b7a90">' + U.esc(r[0]) + '</span> <span style="color:#e2e8f0">' + U.esc(String(r[1])) + '</span></div>'; }).join("") + '</div>';
+    }
+    if (d.reason) out += '<div style="font-size:12px;color:#9aa8c2;margin-top:6px">ℹ ' + U.esc(d.reason) + '</div>';
+    out += '<div style="font-size:11px;color:#6b7a90;margin-top:6px">Report date <b style="color:#94a3b8">' + (o.effectiveDate ? U.esc(CR.fmtDate(o.effectiveDate)) : 'not found') + '</b> · imported <b style="color:#94a3b8">today</b> — kept separately.</div>';
+    if (editable) {
+      var edited = Object.prototype.hasOwnProperty.call(s.edited, c.id);
+      out += '<div class="row" style="margin-top:6px;align-items:center">' +
+        '<input id="dv-' + c.id + '" value="' + U.esc(edited ? s.edited[c.id] : (o.status === "available" ? (o.valueText || (o.value != null ? String(o.value) : "")) : "")) + '" placeholder="Correct the value here only if the report was misread" ' +
+        'oninput="DOCAI.reviewUI.edit(\'' + c.id + '\',this.value)" style="flex:1;font-size:13px">' +
+        (edited ? '<span class="chip" style="background:rgba(139,92,246,0.15);color:var(--purple);border:1px solid rgba(139,92,246,0.4)">MANUAL</span>' : '') +
+        '</div>';
+      if (edited) out += '<div style="font-size:11px;color:var(--purple);margin-top:3px">Saved as a manual entry. The document\'s own reading (' + U.esc(o.valueText || CR.statusLabel(o.status)) + ') is kept in history.</div>';
+    }
+    return out;
+  }
 
   /* ---------- values the validators threw out ---------- */
   function rejectedBlock(p) {
@@ -440,7 +636,9 @@
           : exactLink && (s.duplicateChoice === "meta" || s.duplicateChoice === "recheck")
             ? '✅ UPDATE SAVED LINK'
             : '✅ SAVE ' + ticked + ' VALUE(S) + LINK')
-      : '✅ SAVE SELECTED (' + ticked + ')';
+      : p.reanalysis
+        ? '✅ SAVE ' + ticked + ' TO THE EXISTING DOCUMENT'
+        : '✅ SAVE SELECTED (' + ticked + ')';
 
     var out = "";
     if (s.status) {
@@ -465,7 +663,7 @@
       ' onclick="DOCAI.reviewUI.saveSelected()">' +
       saveLabel + '</button>' +
       '<button class="btn btn-ghost" style="flex:1;min-width:140px" onclick="DOCAI.reviewUI.saveDocOnly()">' +
-      (s.isLink ? '🔗 SAVE LINK ONLY' : '📂 SAVE DOCUMENT ONLY') + '</button>' +
+      (s.isLink ? '🔗 SAVE LINK ONLY' : p.reanalysis ? '📂 RECORD RE-ANALYSIS ONLY' : '📂 SAVE DOCUMENT ONLY') + '</button>' +
       '<button class="btn btn-ghost" style="flex:1;min-width:100px" onclick="DOCAI.reviewUI.cancel()">✕ CANCEL</button>' +
       '</div>';
 
@@ -587,7 +785,7 @@
   function collectFields() {
     var s = R.session;
     return s.proposal.candidates.filter(function (c) { return s.checked[c.id]; }).map(function (c) {
-      return {
+      var f = {
         dest: c.dest,
         value: R.currentValue(c),
         resolution: R.existingValue(c.dest) !== "" ? (s.resolutions[c.dest] || "keep") : "replace",
@@ -595,6 +793,22 @@
         manuallyApproved: c.confidence !== "High",
         validationWarnings: ((c.validation && c.validation.warnings) || []).slice()
       };
+      if (c.credit) {
+        f.credit = c.credit;
+        f.resolution = R.existingValue(c.dest) !== "" ? (s.resolutions[c.dest] || "keep") : "";
+        var edited = Object.prototype.hasOwnProperty.call(s.edited, c.id) ? String(s.edited[c.id]).trim() : null;
+        var original = c.credit.status === "available" ? (c.credit.valueText || (c.credit.value != null ? String(c.credit.value) : "")) : "";
+        if (edited !== null && edited !== original) {
+          f.creditEdited = true;
+          f.value = edited;
+          var n = parseFloat(edited.replace(/[$,%\s]/g, ""));
+          f.creditValue = edited && !isNaN(n) && /^[\s$]*[\d.,]+\s*%?$/.test(edited) ? n : null;
+          f.creditStatus = edited ? "available" : "data_not_available";
+        } else {
+          f.value = c.value;
+        }
+      }
+      return f;
     });
   }
 
@@ -605,7 +819,9 @@
   R.saveSelected = function () {
     var s = R.session; if (!s) return;
     if (!s.biz) { s.status = "Choose the business first."; repaint(); return; }
-    if (s.proposal.exactDuplicates.length && !s.duplicateChoice) {
+    var reId = s.proposal.reanalysis && s.proposal.reanalysis.docId;
+    var otherDuplicates = (s.proposal.exactDuplicates || []).filter(function (d) { return !reId || d.file.id !== reId; });
+    if (otherDuplicates.length && !s.duplicateChoice) {
       s.status = s.isLink
         ? "This link is already saved — choose one of the options above first."
         : "This is an exact duplicate — choose one of the duplicate options above first.";
@@ -626,7 +842,8 @@
       docType: s.docType,
       docTypeLabel: (CLASS.byId(s.docType) || {}).label,
       category: s.category,
-      saveDocument: s.duplicateChoice !== "meta" && s.duplicateChoice !== "link",
+      saveDocument: !reId && s.duplicateChoice !== "meta" && s.duplicateChoice !== "link",
+      reanalyzeDocId: reId || null,
       fields: collectFields()
     };
     if (s.isLink && (s.duplicateChoice === "meta" || s.duplicateChoice === "recheck")) {
@@ -638,10 +855,12 @@
       .then(function (journal) {
         // "Saved 0 values" reads like a failure when the real reason is that
         // every conflict was resolved as "keep", so say which happened.
-        var kept = decisions.fields.length - journal.fieldWrites.length;
-        var msg = "✓ Saved " + journal.fieldWrites.length + " value(s) to " + BIZ_LABEL[journal.biz] +
-          (kept > 0 ? " · kept " + kept + " existing value(s) and filed the new one(s) as alternates" : "") +
-          (journal.docId ? " · document filed." : journal.webUpdatedId ? " · existing web source updated." : journal.webId ? " · web source saved." : ".") +
+        var credit = (journal.creditWrites || []).filter(function (w) { return !w.historical; }).length;
+        var plain = journal.fieldWrites.filter(function (w) { return !w.mirrorOf; }).length;
+        var kept = decisions.fields.length - plain - credit;
+        var msg = "✓ Saved " + plain + " value(s)" + (credit ? " and " + credit + " credit metric(s)" : "") + " to " + BIZ_LABEL[journal.biz] +
+          (kept > 0 ? " · " + kept + " already on file or kept as history" : "") +
+          (journal.docId ? " · document filed." : journal.webUpdatedId ? " · existing web source updated." : journal.webId ? " · web source saved." : journal.docUpdatedId ? " · document re-analysed, no copy made." : ".") +
           (journal.blobError ? " The file itself could not be stored: " + journal.blobError : "");
         R.close();
         if (s.ctx.onSaved) s.ctx.onSaved(msg);
@@ -681,10 +900,13 @@
     TX.saveDocumentOnly(s.ctx.state, s.proposal, {
       biz: s.biz, docType: s.docType,
       docTypeLabel: (CLASS.byId(s.docType) || {}).label,
-      category: s.category
+      category: s.category,
+      reanalyzeDocId: (s.proposal.reanalysis && s.proposal.reanalysis.docId) || null
     }, { commit: s.ctx.commit })
       .then(function (journal) {
-        var msg = "✓ Filed “" + journal.fileName + "” under " + BIZ_LABEL[journal.biz] + ". No field values were changed.";
+        var msg = journal.docUpdatedId
+          ? "✓ Re-analysis of “" + journal.fileName + "” recorded" + (journal.creditExtendedAdded ? " with " + journal.creditExtendedAdded + " new extended fact(s)" : "") + ". No field values were changed."
+          : "✓ Filed “" + journal.fileName + "” under " + BIZ_LABEL[journal.biz] + ". No field values were changed.";
         R.close();
         if (s.ctx.onSaved) s.ctx.onSaved(msg);
       })
