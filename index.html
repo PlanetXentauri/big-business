@@ -570,9 +570,12 @@ function render() {
                contacts: rContacts, notes: rNotes, strength: rStrength }[s.activeTab] || rStrength;
   el.innerHTML = fn(s.activeBiz);
   renderCloud();
-  document.getElementById("footer").textContent =
+  document.getElementById("footer").innerHTML =
     "CENTAURI WORLD LLC · KEYPR ON COMPANY · " +
-    new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase();
+    new Date().toLocaleDateString("en-US",{month:"long",year:"numeric"}).toUpperCase() +
+    (location.protocol.startsWith("http")
+      ? `<div style="margin-top:6px;letter-spacing:0.1em;color:#334155">YOUR LINK: <a href="https://planetxentauri.github.io/big-business/" style="color:#475569">planetxentauri.github.io/big-business</a> · also <a href="https://planetxentauri.github.io/" style="color:#475569">planetxentauri.github.io</a></div>`
+      : "");
 }
 function renderLogos() {
   document.querySelectorAll("header .logo-wrap, #splash .logo-wrap").forEach(w => w.innerHTML = logoHTML());
