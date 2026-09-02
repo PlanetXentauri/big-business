@@ -1276,9 +1276,29 @@ function docaiCtx(){
     activeBiz: _state.activeBiz,
     commit: () => { save(); },
     render: () => render(),
-    onSaved: (msg) => { ui.afStatus = msg; render(); },
-    onCancelled: (msg) => { ui.afStatus = msg; render(); }
+    onSaved: (msg) => { ui.afStatus = msg; render(); docaiNextQueued(); },
+    onCancelled: (msg) => { ui.afStatus = msg; render(); docaiNextQueued(); }
   };
+}
+// PDFs dropped in together are read one after another, each with its own review.
+function docaiNextQueued(){
+  const q = ui.afQueue || [];
+  if (!q.length) return;
+  const next = q.shift();
+  setTimeout(()=>runAutofill(next.file, next.biz), 300);
+}
+// Read a file that was stored earlier through 📎 FILES (or pasted) without
+// ever going through the engine — for example a credit report saved as a
+// plain attachment. The stored copy is left alone; the review decides.
+function autofillSavedDoc(biz, id){
+  const f=_state.docs[biz].files.find(x=>x.id===id); if(!f) return;
+  const start = (blob)=>{ _state.activeTab="strength"; runAutofill(new File([blob], f.name, {type: f.type||blob.type||"application/pdf"}), biz); };
+  if (f.blobId && window.DOCAI){
+    DOCAI.store.getBlob(f.blobId).then(b=>{ if(b) start(b); else { ui.docStatus="\""+f.name+"\" is no longer in document storage."; render(); } });
+    return;
+  }
+  if(!f.dataUri){ ui.docStatus="\""+f.name+"\" was stored as a reference only, so there is nothing to read — add the file again."; render(); return; }
+  fetch(f.dataUri).then(r=>r.blob()).then(start);
 }
 
 // Profile snapshots handed to the business matcher — the values already on
@@ -2161,8 +2181,9 @@ function rDocs(biz) {
   else if (ui.docOpen.sav) html += `<div class="col" style="margin-bottom:12px">`+otherF.map(f=>`
     <div class="card" style="padding:10px 14px;display:flex;gap:10px;align-items:center">
       ${f.dataUri&&f.type.startsWith("image/")?`<img src="${f.dataUri}" style="width:38px;height:38px;object-fit:cover;border-radius:6px;flex-shrink:0;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">`:`<span style="cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${fileIcon(f.name)}</span>`}
-      <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#8794ab;font-size:12px">(reference only — too big to store)</span>`:""}</span>
+      <span style="flex:1;min-width:0;font-size:14px;color:#e2e8f0;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;cursor:pointer" onclick="openSavedDoc('${biz}','${f.id}')">${esc(f.name)}${f.ref?` <span style="color:#8794ab;font-size:12px">(reference only — too big to store)</span>`:""}${!f.docai&&/\.pdf$/i.test(f.name||"")?` <span style="color:var(--amber);font-size:12px">· stored only, never read — click 🪄 to read it</span>`:""}</span>
       <span style="font-size:12px;color:#8794ab;flex-shrink:0">${fmtSize(f.size)} · ${fmtTs(f.ts)}</span>
+      ${!f.docai&&(f.dataUri||f.blobId)?`<button class="del-x" style="opacity:0.9;font-size:16px" title="Read this file with autofill (fills fields / credit profile after your review)" onclick="autofillSavedDoc('${biz}','${f.id}')">🪄</button>`:""}
       <button class="del-x" title="Rename" onclick="renameDocFile('${biz}','${f.id}')">✎</button>
       <button class="del-x" onclick="delDocFile('${biz}','${f.id}')">×</button>
     </div>`).join("")+`</div>`;
@@ -2234,7 +2255,22 @@ async function autofillFromScan(biz, idx){
 }
 function pickDocFiles(biz){ const i=document.getElementById("docFile"); i.dataset.biz=biz; i.click(); }
 function addDocFiles(fileList, biz) {
-  const files=[...fileList]; if(!files.length) return;
+  let files=[...fileList]; if(!files.length) return;
+  // A PDF added here is a document to be READ, not just stored: run it
+  // through the same engine as AUTOFILL FROM PDF. It is filed (and any
+  // credit report lands on the Business Credit Profile) once you save the
+  // review. Other PDFs wait their turn; photos and screenshots are stored as before.
+  if (window.DOCAI && DOCAI.pipeline){
+    const pdfs = files.filter(f=>/pdf$/i.test(f.type) || /\.pdf$/i.test(f.name||""));
+    if (pdfs.length){
+      files = files.filter(f=>pdfs.indexOf(f)<0);
+      ui.afQueue = (ui.afQueue||[]).concat(pdfs.slice(1).map(f=>({file:f,biz})));
+      ui.docStatus = pdfs.length>1 ? `Reading ${pdfs[0].name} — ${pdfs.length-1} more PDF(s) will follow after you finish this review.` : null;
+      _state.activeTab = "strength";
+      runAutofill(pdfs[0], biz);
+      if (!files.length) return;
+    }
+  }
   let pending=files.length;
   files.forEach(f=>{
     const entry={ id:uid("doc"), name:f.name||("screenshot-"+new Date().toISOString().slice(0,19).replace(/[:T]/g,"-")+".png"),
