@@ -195,7 +195,11 @@
     var best = null;
     Object.keys(scores).forEach(function (k) { if (scores[k] > 0 && (!best || scores[k] > scores[best])) best = k; });
     var format = "generic";
-    if (best === "dnb" && /Credit Insights/i.test(t) && /(Risk Assessment - Scores and Ratings|Prepared for [^\n]+ on )/i.test(t)) format = "dnb_credit_insights";
+    // The Credit Insights layout is recognised by its section structure, not
+    // by the page header — some exports drop the "D&B Credit Insights /
+    // Prepared for …" running header entirely.
+    if (best === "dnb" && (/Credit Insights/i.test(t) || /Risk Assessment - Scores and Ratings/i.test(t) ||
+        (/PAYDEX/i.test(t) && /Delinquency Score/i.test(t) && /Failure Score/i.test(t) && /Raw Score/i.test(t)))) format = "dnb_credit_insights";
     return { provider: best, format: format, scores: scores };
   };
 
@@ -232,6 +236,13 @@
 
     var dm = /Prepared for [^\n]*? on ([A-Z][a-z]{2,8}\.? \d{1,2}, \d{4})/.exec(full);
     if (dm) out.reportDate = isoDate(dm[1]);
+    if (!out.reportDate) {
+      // No "Prepared for … on <date>" header. The Payment History and
+      // Inquiries sections run up to the day the report was generated, so
+      // the end of that period is the report date.
+      var pm = /(?:Payment History|Inquiries)\s*\n\s*[A-Z][a-z]{2,8}\.? \d{1,2}, \d{4}\s*-\s*([A-Z][a-z]{2,8}\.? \d{1,2}, \d{4})/.exec(full);
+      if (pm) { out.reportDate = isoDate(pm[1]); if (out.reportDate) out.notes.push("Report date " + out.reportDate + " taken from the end of the report's history period — the page header carried no date."); }
+    }
     var bm = /(?:^|\n)D\s?B Credit Insights\s*\n([^\n]{3,80})\n/.exec(full) || /([^\n]{3,80})\s+Prepared for /.exec(full);
     if (bm) out.businessName = bm[1].trim();
     var dunsM = /D-U-N-S Number[^\d]{0,40}(\d{2}-?\d{3}-?\d{4})/.exec(full);
@@ -267,9 +278,25 @@
     P.filter(function (p) { return p.isSummary; }).forEach(function (p) {
       if (summary) return;
       var rx = /^(DATA NOT AVAILABLE|\d{1,3})\s+(DATA NOT AVAILABLE|\d{1,3})\s+(DATA NOT AVAILABLE|\d{1,3})$/;
-      for (var i = 0; i < p.L.length; i++) {
+      // Only the summary block above the "PAYDEX® Score" section counts.
+      var end = p.L.length;
+      for (var e = 0; e < p.L.length; e++) if (/^PAYDEX[®]?\s+Score$/i.test(p.L[e].trim())) { end = e; break; }
+      for (var i = 0; i < end; i++) {
         var m = rx.exec(p.L[i].trim());
         if (m) { summary = { paydex: m[1], delinquency: m[2], failure: m[3], page: p.n, excerpt: p.L[i].trim() }; break; }
+      }
+      if (!summary) {
+        // Some exports print the two numeric gauges on one line and the
+        // PAYDEX "DATA NOT AVAILABLE" on its own. Two numbers under a
+        // PAYDEX / DELINQUENCY / FAILURE header, with an unavailable cell
+        // elsewhere in the block, are the delinquency and failure scores.
+        var two = null, dna = false;
+        for (var k = 0; k < end; k++) {
+          var line = p.L[k].trim();
+          if (!two && /^\d{1,3}\s{2,}\d{1,3}$/.test(line)) two = { m: line.split(/\s+/), excerpt: line };
+          if (line === DNA) dna = true;
+        }
+        if (two && dna) summary = { paydex: DNA, delinquency: two.m[0], failure: two.m[1], page: p.n, excerpt: two.excerpt + " / " + DNA, split: true };
       }
     });
 

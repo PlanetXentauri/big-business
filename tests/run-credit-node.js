@@ -230,6 +230,25 @@ eq(CX.detect("Meeting notes about coffee."), { provider: null, format: "generic"
   eq(res.extended.filter(function (e) { return e.key === "payment_history_period"; }).length, 1, "a fact printed on two pages is stored once");
 });
 
+suite("Header-less export — same report without the 'Prepared for' running header");
+var NOHDR = fixturePages("dnb-insights-keypr-may-noheader", true);
+var NOHDR_TEXT = fixturePages("dnb-insights-keypr-may-noheader", false);
+ok(!/Prepared for|Credit Insights/.test(NOHDR.map(function (p) { return p.text; }).join("\n")), "the fixture really carries no header");
+eq(CX.detect(NOHDR.map(function (p) { return p.text; }).join("\n")).format, "dnb_credit_insights", "the layout is still recognised by its sections");
+[["font-size path", NOHDR], ["text-only path", NOHDR_TEXT]].forEach(function (mode) {
+  var r = CX.extract(mode[1], {});
+  eq(r.reportDate, "2026-05-18", mode[0] + ": report date inferred from the end of the history period");
+  ok(r.notes.some(function (n) { return /history period/.test(n); }), mode[0] + ": …and the inference is stated");
+  eq(obsOf(r, "paydex") && obsOf(r, "paydex").status, "data_not_available", mode[0] + ": PAYDEX still DATA NOT AVAILABLE with the summary row split");
+  eq(obsOf(r, "delinquency_score") && obsOf(r, "delinquency_score").value, 24, mode[0] + ": Delinquency 24");
+  eq(obsOf(r, "failure_score") && obsOf(r, "failure_score").value, 28, mode[0] + ": Failure 28");
+  eq(obsOf(r, "ser_rating") && obsOf(r, "ser_rating").value, 6, mode[0] + ": SER 6");
+  eq(obsOf(r, "max_credit_recommendation") && obsOf(r, "max_credit_recommendation").value, 5000, mode[0] + ": recommendation 5,000");
+  eq(obsOf(r, "dnb_rating") && obsOf(r, "dnb_rating").details.previous, "DS", mode[0] + ": previous rating DS");
+  eq(r.observations.filter(function (o) { return CR.metricDef("dnb", o.metricType).counted; }).length, 7, mode[0] + ": seven credit metrics");
+  eq(r.identifiers.duns, "12-345-6789", mode[0] + ": D-U-N-S read");
+});
+
 suite("Nearby numbers are never borrowed");
 var resMay = CX.extract(MAY, {});
 var p1 = obsOf(resMay, "paydex");
